@@ -60,3 +60,33 @@ export const lightTheme: AppleTheme = {
   bg: '#ffffff',
   grouped: '#f2f2f7',
   card: '#ffffff',
+  cardElevated: '#ffffff',
+  cardBorder: 'rgba(60,60,67,0.12)',
+  text: '#000000',
+  sec: '#6c6c70',
+  tertiary: '#8e8e93',
+  blue: '#0071e3',
+  green: '#2fb457',
+  red: '#d70015',
+  sep: 'rgba(60,60,67,0.18)',
+  fill: 'rgba(118,118,128,0.12)',
+  fillSecondary: 'rgba(118,118,128,0.08)',
+  inputBg: 'rgba(118,118,128,0.12)',
+  swOff: 'rgba(120,120,128,0.32)',
+  knob: '#ffffff',
+  statusBar: 'dark',
+};
+
+export function useTheme(): AppleTheme {
+  const themeMode = useBrowserStore((s) => s.themeMode);
+  const colorScheme = useColorScheme();
+  const isDark = themeMode === 'system' ? colorScheme === 'dark' : themeMode === 'dark';
+  return isDark ? darkTheme : lightTheme;
+}
+
+/* ---------- Color Tokens (Backwards compatibility defaults) ---------- */
+export const C = {
+  blue: '#0a84ff',
+  sec: '#8e8e93',
+  gray: '#636366',
+  sep: '#38383a',
