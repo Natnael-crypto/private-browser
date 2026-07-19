@@ -90,3 +90,34 @@ export const C = {
   sec: '#8e8e93',
   gray: '#636366',
   sep: '#38383a',
+  fill: 'rgba(120,120,128,0.32)',
+  grouped: '#000000',
+  thumb: '#2b3138',
+  video: '#1d242b',
+  body: '#e5e5ea',
+  red: '#ff453a',
+  green: '#30d158',
+  off: '#39393d',
+  darkCard: '#2c2c2e',
+  darkBg: '#1c1c1e',
+  black: '#000000',
+  white: '#ffffff',
+};
+
+/* ---------- Font Family Tokens ---------- */
+export const F = {
+  r: 'HankenGrotesk_400Regular',
+  m: 'HankenGrotesk_500Medium',
+  s: 'HankenGrotesk_600SemiBold',
+  b: 'HankenGrotesk_700Bold',
+};
+
+/* ---------- Font Hook ---------- */
+export function useHanken() {
+  const [loaded] = useFonts({
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
+  });
+  return loaded;
