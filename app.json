@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "Private Browser",
+    "slug": "private-browser",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to securely unlock your private browsing session and downloaded videos.",
+        "NSMicrophoneUsageDescription": "Use microphone for voice search in Google and other search engines.",
+        "NSCameraUsageDescription": "Use camera for Google Lens and visual search."
+      }
+    },
+    "android": {
+      "package": "com.privatebrowser.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
+      "permissions": [
+        "INTERNET",
+        "POST_NOTIFICATIONS",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "RECORD_AUDIO",
+        "CAMERA",
+        "MODIFY_AUDIO_SETTINGS",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      "expo-local-authentication",
+      "expo-status-bar",
+      "expo-video"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f20ee286-d962-4713-b529-cacca94ab0d3"
+      }
+    }
+  }
+}
