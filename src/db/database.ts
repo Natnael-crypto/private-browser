@@ -126,3 +126,67 @@ class AppDatabase {
           title TEXT NOT NULL,
           added_at INTEGER NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS custom_lists (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          kind TEXT,
+          source TEXT,
+          content BLOB,
+          updated_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS videos (
+          id TEXT PRIMARY KEY,
+          source_page_url TEXT NOT NULL,
+          frame_url TEXT,
+          media_url TEXT NOT NULL,
+          title TEXT,
+          format TEXT,
+          resolution TEXT,
+          size_bytes INTEGER,
+          protected INTEGER DEFAULT 0,
+          thumbnail TEXT,
+          detected_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS downloads (
+          id TEXT PRIMARY KEY,
+          video_id TEXT REFERENCES videos(id) ON DELETE CASCADE,
+          state TEXT NOT NULL,
+          bytes_done INTEGER DEFAULT 0,
+          segments_done INTEGER DEFAULT 0,
+          segments_total INTEGER DEFAULT 0,
+          temp_name TEXT NOT NULL,
+          headers_json TEXT,
+          file_uri TEXT,
+          final_name TEXT,
+          error TEXT,
+          started_at INTEGER NOT NULL,
+          completed_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS proxy_profiles (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          host TEXT NOT NULL,
+          port INTEGER NOT NULL,
+          username TEXT,
+          password TEXT,
+          active INTEGER DEFAULT 0,
+          fail_closed INTEGER DEFAULT 0,
+          bypass_list TEXT,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS vpn_profiles (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          kind TEXT NOT NULL,
+          config TEXT NOT NULL,
+          username TEXT,
+          password TEXT,
+          kill_switch INTEGER DEFAULT 0,
+          auto_connect INTEGER DEFAULT 0,
+          active INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
