@@ -254,3 +254,67 @@ class AppDatabase {
       [host.toLowerCase()]
     );
     return !!row;
+  }
+
+  public async addHostToAllowlist(host: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'INSERT OR IGNORE INTO allowlist (host, added_at) VALUES (?, ?);',
+      [host.toLowerCase(), Date.now()]
+    );
+  }
+
+  public async removeHostFromAllowlist(host: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'DELETE FROM allowlist WHERE host = ?;',
+      [host.toLowerCase()]
+    );
+  }
+
+  // --- Bookmarks (WEB-15) ---
+  public async getBookmarks(): Promise<BookmarkRecord[]> {
+    await this.init();
+    if (!this.db) return [];
+    return await this.db.getAllAsync<BookmarkRecord>(
+      'SELECT * FROM bookmarks ORDER BY added_at DESC;'
+    );
+  }
+
+  public async addBookmark(url: string, title: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'INSERT INTO bookmarks (url, title, added_at) VALUES (?, ?, ?);',
+      [url, title, Date.now()]
+    );
+  }
+
+  public async deleteBookmark(id: number): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM bookmarks WHERE id = ?;', [id]);
+  }
+
+  // --- Videos (VID-1 to VID-9, SEC-4, SEC-5) ---
+  public async saveVideo(video: VideoRecord): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO videos (
+        id, source_page_url, frame_url, media_url, title,
+        format, resolution, size_bytes, protected, thumbnail, detected_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        video.id,
+        video.source_page_url,
+        video.frame_url ?? null,
+        video.media_url,
+        video.title,
+        video.format ?? null,
+        video.resolution ?? null,
+        video.size_bytes ?? 0,
+        video.protected,
+        video.thumbnail ?? null,
