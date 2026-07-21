@@ -190,3 +190,67 @@ class AppDatabase {
           auto_connect INTEGER DEFAULT 0,
           active INTEGER DEFAULT 0,
           created_at INTEGER NOT NULL,
+          last_used INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS site_settings (
+          host TEXT PRIMARY KEY,
+          js INTEGER,
+          ua_mode TEXT,
+          ua_value TEXT,
+          images INTEGER,
+          third_party_scripts INTEGER,
+          fp_protection INTEGER,
+          blocker INTEGER,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS site_permissions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          host TEXT NOT NULL,
+          permission TEXT NOT NULL,
+          decision TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          UNIQUE(host, permission)
+        );
+      `);
+
+      this.initialized = true;
+    } catch (e) {
+      console.warn('Database init fallback for non-native web/mock environments:', e);
+    }
+  }
+
+  // --- Settings ---
+  public async getSetting(key: string, defaultValue: string = ''): Promise<string> {
+    await this.init();
+    if (!this.db) return defaultValue;
+    try {
+      const row = await this.db.getFirstAsync<{ value: string }>(
+        'SELECT value FROM settings WHERE key = ?;',
+        [key]
+      );
+      return row ? row.value : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  public async setSetting(key: string, value: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?);',
+      [key, value]
+    );
+  }
+
+  // --- Allowlist ---
+  public async isHostAllowed(host: string): Promise<boolean> {
+    await this.init();
+    if (!this.db) return false;
+    const row = await this.db.getFirstAsync<{ host: string }>(
+      'SELECT host FROM allowlist WHERE host = ?;',
+      [host.toLowerCase()]
+    );
+    return !!row;
