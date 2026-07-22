@@ -318,3 +318,67 @@ class AppDatabase {
         video.size_bytes ?? 0,
         video.protected,
         video.thumbnail ?? null,
+        video.detected_at,
+      ]
+    );
+  }
+
+  public async getVideo(id: string): Promise<VideoRecord | null> {
+    await this.init();
+    if (!this.db) return null;
+    return await this.db.getFirstAsync<VideoRecord>(
+      'SELECT * FROM videos WHERE id = ?;',
+      [id]
+    );
+  }
+
+  public async updateVideoThumbnail(videoId: string, thumbnailUri: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'UPDATE videos SET thumbnail = ? WHERE id = ?;',
+      [thumbnailUri, videoId]
+    );
+  }
+
+  // --- Downloads (DL-1 to DL-11, SEC-3, SEC-5) ---
+  public async saveDownload(dl: DownloadRecord): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO downloads (
+        id, video_id, state, bytes_done, segments_done, segments_total,
+        temp_name, headers_json, file_uri, final_name, error, started_at, completed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        dl.id,
+        dl.video_id,
+        dl.state,
+        dl.bytes_done,
+        dl.segments_done,
+        dl.segments_total,
+        dl.temp_name,
+        dl.headers_json ?? null,
+        dl.file_uri ?? null,
+        dl.final_name ?? null,
+        dl.error ?? null,
+        dl.started_at,
+        dl.completed_at ?? null,
+      ]
+    );
+  }
+
+  public async createDownload(dl: DownloadRecord): Promise<void> {
+    return this.saveDownload(dl);
+  }
+
+  public async updateDownloadProgress(
+    id: string,
+    bytesDone: number,
+    segmentsDone: number,
+    segmentsTotal: number
+  ): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'UPDATE downloads SET bytes_done = ?, segments_done = ?, segments_total = ? WHERE id = ?;',
