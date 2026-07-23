@@ -129,3 +129,68 @@ interface BrowserState {
   setReduceFingerprinting: (v: boolean) => void;
   setGlobalJs: (v: boolean) => void;
   setBlockThirdPartyScripts: (v: boolean) => void;
+  setBlockAutoplay: (v: boolean) => void;
+  setBlockLocalNetwork: (v: boolean) => void;
+  setImagesEnabled: (v: boolean) => void;
+  setBlockWebFonts: (v: boolean) => void;
+  setBlockServiceWorkers: (v: boolean) => void;
+  setBlockBeacons: (v: boolean) => void;
+  setDefaultDenyPermissions: (v: boolean) => void;
+  setBlockClipboardRead: (v: boolean) => void;
+  setWarnRiskyDownloads: (v: boolean) => void;
+  setBlockDriveByNav: (v: boolean) => void;
+  setConfirmAppRedirects: (v: boolean) => void;
+  setScreenOffLock: (v: boolean) => void;
+  setPrivateKeyboard: (v: boolean) => void;
+  setDuressCode: (v: string) => void;
+  setMaxFailedAttempts: (v: number) => void;
+  setDetectInsecureForms: (v: boolean) => void;
+
+  // Wipes & Persistence (SEC-2, SEC-4)
+  clearEverything: () => Promise<void>;
+  resetToInitialState: () => void;
+  loadPersistedSettings: () => Promise<void>;
+}
+
+const DEFAULT_BLANK_URL = 'about:blank';
+
+export const DEFAULT_SETTINGS = {
+  searchEngine: 'DuckDuckGo' as SearchEngine,
+  searchSuggestions: false, // Privacy default: disabled so keystrokes are not transmitted
+  blockAds: true,
+  blockCookies: true,
+  httpsOnly: true,
+  sendGpc: true,
+  wifiOnly: false,
+  removeDetailsAfterDl: false,
+  saveDestination: 'Downloads' as 'Downloads' | 'App Secure Storage',
+  autoLockLabel: 'Immediately',
+  fingerprintEnabled: true,
+  themeMode: 'dark' as 'dark' | 'light' | 'system',
+
+  // Network defaults
+  activeProxyId: null as string | null,
+  failClosed: false,
+  activeVpnId: null as string | null,
+  vpnKillSwitch: false,
+
+  // Identity defaults
+  uaPreset: 'default' as 'default' | 'safari_ios' | 'safari_mac' | 'chrome_win' | 'firefox_linux' | 'chrome_android' | 'custom',
+  customUa: '',
+  spoofLanguage: 'system',
+  spoofTimezone: 'system',
+  roundScreen: false,
+  reduceFingerprinting: true,
+
+  // Content defaults
+  globalJs: true,
+  blockThirdPartyScripts: false,
+  blockAutoplay: true,
+  blockLocalNetwork: true,
+  imagesEnabled: true,
+  blockWebFonts: false,
+  blockServiceWorkers: false,
+  blockBeacons: true,
+
+  // Permissions defaults
+  defaultDenyPermissions: true,
