@@ -63,3 +63,69 @@ interface BrowserState {
   spoofTimezone: string;
   roundScreen: boolean;
   reduceFingerprinting: boolean;
+
+  // Content & Scripts
+  globalJs: boolean;
+  blockThirdPartyScripts: boolean;
+  blockAutoplay: boolean;
+  blockLocalNetwork: boolean;
+  imagesEnabled: boolean;
+  blockWebFonts: boolean;
+  blockServiceWorkers: boolean;
+  blockBeacons: boolean;
+
+  // Permissions & Safe Browsing
+  defaultDenyPermissions: boolean;
+  blockClipboardRead: boolean;
+  warnRiskyDownloads: boolean;
+  blockDriveByNav: boolean;
+  confirmAppRedirects: boolean;
+
+  // Lock & Emergency
+  screenOffLock: boolean;
+  privateKeyboard: boolean;
+  duressCode: string;
+  maxFailedAttempts: number;
+
+  // Safety
+  detectInsecureForms: boolean;
+
+  // Actions
+  createTab: (initialUrl?: string) => string;
+  closeTab: (tabId: string) => void;
+  setActiveTab: (tabId: string) => void;
+  updateTab: (tabId: string, partial: Partial<BrowserTab>) => void;
+  incrementBlockedCount: (tabId: string) => void;
+  resetBlockedCount: (tabId: string) => void;
+  navigateTab: (tabId: string, input: string) => void;
+  reloadTab: (tabId: string) => void;
+  stopTab: (tabId: string) => void;
+  toggleDesktopMode: (tabId: string) => void;
+
+  // Settings Setters
+  setBlockAds: (v: boolean) => void;
+  setBlockCookies: (v: boolean) => void;
+  setHttpsOnly: (v: boolean) => void;
+  setSendGpc: (v: boolean) => void;
+  setWifiOnly: (v: boolean) => void;
+  setRemoveDetailsAfterDl: (v: boolean) => void;
+  setSaveDestination: (v: 'Downloads' | 'App Secure Storage') => void;
+  setAutoLockLabel: (v: string) => void;
+  setFingerprintEnabled: (v: boolean) => void;
+  setSearchEngine: (se: SearchEngine) => void;
+  setSearchSuggestions: (v: boolean) => void;
+  setThemeMode: (mode: 'dark' | 'light' | 'system') => void;
+
+  // Security Setters
+  setActiveProxyId: (id: string | null) => void;
+  setFailClosed: (v: boolean) => void;
+  setActiveVpnId: (id: string | null) => void;
+  setVpnKillSwitch: (v: boolean) => void;
+  setUaPreset: (preset: 'default' | 'safari_ios' | 'safari_mac' | 'chrome_win' | 'firefox_linux' | 'chrome_android' | 'custom') => void;
+  setCustomUa: (v: string) => void;
+  setSpoofLanguage: (v: string) => void;
+  setSpoofTimezone: (v: string) => void;
+  setRoundScreen: (v: boolean) => void;
+  setReduceFingerprinting: (v: boolean) => void;
+  setGlobalJs: (v: boolean) => void;
+  setBlockThirdPartyScripts: (v: boolean) => void;
