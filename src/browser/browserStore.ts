@@ -194,3 +194,68 @@ export const DEFAULT_SETTINGS = {
 
   // Permissions defaults
   defaultDenyPermissions: true,
+  blockClipboardRead: true,
+  warnRiskyDownloads: true,
+  blockDriveByNav: true,
+  confirmAppRedirects: true,
+
+  // Lock defaults
+  screenOffLock: true,
+  privateKeyboard: true,
+  duressCode: '',
+  maxFailedAttempts: 5,
+
+  // Safety defaults
+  detectInsecureForms: true,
+};
+
+const NON_SECRET_SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS).filter(
+  (k) => k !== 'duressCode'
+) as (keyof typeof DEFAULT_SETTINGS)[];
+
+let saveDebounceTimer: any = null;
+function persistCurrentSettings(state: BrowserState) {
+  if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(async () => {
+    try {
+      const payload: Record<string, any> = {};
+      for (const k of NON_SECRET_SETTINGS_KEYS) {
+        payload[k] = state[k];
+      }
+      await db.setSetting('pb_app_settings', JSON.stringify(payload));
+    } catch (e) {
+      console.warn('Failed to persist settings:', e);
+    }
+  }, 100);
+}
+
+export const useBrowserStore = create<BrowserState>((set, get) => {
+  const initialTabId = Crypto.randomUUID();
+  const initialTab: BrowserTab = {
+    id: initialTabId,
+    loadRequest: null,
+    currentUrl: DEFAULT_BLANK_URL,
+    url: DEFAULT_BLANK_URL,
+    title: 'New Tab',
+    canGoBack: false,
+    canGoForward: false,
+    homeForward: false,
+    isLoading: false,
+    progress: 0,
+    blockedCount: 0,
+    isBlank: true,
+    desktopMode: false,
+    loadError: null,
+  };
+
+  const updateSetting = <K extends keyof typeof DEFAULT_SETTINGS>(key: K, val: typeof DEFAULT_SETTINGS[K]) => {
+    set((state) => {
+      const next = { ...state, [key]: val };
+      persistCurrentSettings(next);
+      return { [key]: val } as any;
+    });
+  };
+
+  return {
+    tabs: [initialTab],
+    activeTabId: initialTabId,
