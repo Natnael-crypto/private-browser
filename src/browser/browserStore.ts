@@ -259,3 +259,68 @@ export const useBrowserStore = create<BrowserState>((set, get) => {
   return {
     tabs: [initialTab],
     activeTabId: initialTabId,
+    ...DEFAULT_SETTINGS,
+
+    createTab: (initialUrl) => {
+      const id = Crypto.randomUUID();
+      const isBlank = !initialUrl || initialUrl === DEFAULT_BLANK_URL;
+      const targetUrl = isBlank ? DEFAULT_BLANK_URL : initialUrl!;
+      const newTab: BrowserTab = {
+        id,
+        loadRequest: isBlank ? null : { url: targetUrl, nonce: 1 },
+        currentUrl: targetUrl,
+        url: targetUrl,
+        title: isBlank ? 'New Tab' : 'Loading...',
+        canGoBack: false,
+        canGoForward: false,
+        homeForward: false,
+        isLoading: !isBlank,
+        progress: isBlank ? 0 : 0.1,
+        blockedCount: 0,
+        isBlank,
+        desktopMode: false,
+        loadError: null,
+      };
+
+      set((state) => ({
+        tabs: [...state.tabs, newTab],
+        activeTabId: id,
+      }));
+      return id;
+    },
+
+    closeTab: (tabId) => {
+      const state = get();
+      const newTabs = state.tabs.filter((t) => t.id !== tabId);
+
+      if (newTabs.length === 0) {
+        // If all closed, create fresh blank tab (PRV-3)
+        const newId = Crypto.randomUUID();
+        set({
+          tabs: [
+            {
+              id: newId,
+              loadRequest: null,
+              currentUrl: DEFAULT_BLANK_URL,
+              url: DEFAULT_BLANK_URL,
+              title: 'New Tab',
+              canGoBack: false,
+              canGoForward: false,
+              homeForward: false,
+              isLoading: false,
+              progress: 0,
+              blockedCount: 0,
+              isBlank: true,
+              desktopMode: false,
+              loadError: null,
+            },
+          ],
+          activeTabId: newId,
+        });
+      } else {
+        const nextActive = state.activeTabId === tabId ? newTabs[newTabs.length - 1].id : state.activeTabId;
+        set({
+          tabs: newTabs,
+          activeTabId: nextActive,
+        });
+      }
