@@ -145,3 +145,75 @@ export default function App() {
           onOpenSettings={() => navigateTo('settings')}
           onOpenDownloads={() => navigateTo('downloads')}
         />
+      )}
+
+      {currentScreen === 'downloads' && (
+        <DownloadsScreen
+          onDone={goBackScreen}
+          onOpenSourcePage={(sourceUrl) => {
+            createTab(sourceUrl);
+            resetToBrowser();
+          }}
+        />
+      )}
+
+      {currentScreen === 'settings' && (
+        <SettingsScreen
+          onDone={goBackScreen}
+          onChangePasswordPrompt={() => setChangePasswordModal(true)}
+        />
+      )}
+
+      {/* Videos Sheet Bottom Modal (Exact match to VideosSheetScreen) */}
+      {isVideosSheetOpen && (
+        <VideosSheetScreen
+          currentPageUrl={activeTab?.url}
+          onClose={() => setIsVideosSheetOpen(false)}
+          onOpenDownloads={() => {
+            setIsVideosSheetOpen(false);
+            navigateTo('downloads');
+          }}
+        />
+      )}
+
+      {/* Bookmarks Modal */}
+      {isBookmarksOpen && (
+        <BookmarksModal
+          currentUrl={activeTab?.url}
+          currentTitle={activeTab?.title}
+          onClose={() => setIsBookmarksOpen(false)}
+          onSelectBookmark={(url) => {
+            navigateTab(activeTab.id, url);
+          }}
+        />
+      )}
+
+      {/* Change Password Modal */}
+      <Modal visible={changePasswordModal} animationType="slide" onRequestClose={() => setChangePasswordModal(false)}>
+        <LockScreen
+          onClose={() => setChangePasswordModal(false)}
+          onUnlocked={() => {
+            setChangePasswordModal(false);
+          }}
+        />
+      </Modal>
+      {/* Mandatory App Lock Screen Overlay (SEC-2) - Preserves app & browser state underneath */}
+      {isLocked && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 99999, backgroundColor: '#000' }]}>
+          <LockScreen
+            onUnlocked={() => {
+              setIsLocked(false);
+            }}
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+});
