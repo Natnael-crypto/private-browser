@@ -72,3 +72,76 @@ export default function App() {
         }
       } else if (nextState === 'background' || nextState === 'inactive') {
         const { screenOffLock } = useBrowserStore.getState();
+        if (screenOffLock) {
+          setIsLocked(true);
+        }
+        LockManager.recordActive();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Hardware Back Button Handler for Screen Stack & Modals
+  useEffect(() => {
+    const onHardwareBackPress = () => {
+      if (changePasswordModal) {
+        setChangePasswordModal(false);
+        return true;
+      }
+      if (isBookmarksOpen) {
+        setIsBookmarksOpen(false);
+        return true;
+      }
+      if (isVideosSheetOpen) {
+        setIsVideosSheetOpen(false);
+        return true;
+      }
+      if (screenStack.length > 1) {
+        goBackScreen();
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onHardwareBackPress);
+    return () => subscription.remove();
+  }, [changePasswordModal, isBookmarksOpen, isVideosSheetOpen, screenStack]);
+
+  if (!fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
+  }
+
+  // Active Screen Renderer
+  return (
+    <View style={[s.container, { backgroundColor: theme.bg }]}>
+      <StatusBar
+        style={theme.isDark ? 'light' : (currentScreen === 'browser' && activeTab?.isBlank ? 'light' : 'dark')}
+      />
+
+      {/* Browser Screen (persisted in view hierarchy so WebViews and history stacks are preserved) */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          currentScreen !== 'browser' && { display: 'none' },
+        ]}
+      >
+        <BrowserScreen
+          isLocked={isLocked}
+          isActiveScreen={currentScreen === 'browser' && !isLocked}
+          onOpenTabs={() => navigateTo('tabs')}
+          onOpenBookmarks={() => setIsBookmarksOpen(true)}
+          onOpenDownloads={() => navigateTo('downloads')}
+          onOpenSettings={() => navigateTo('settings')}
+          onOpenVideosSheet={() => setIsVideosSheetOpen(true)}
+        />
+      </View>
+
+      {currentScreen === 'tabs' && (
+        <TabsScreen
+          onDone={goBackScreen}
+          onOpenSettings={() => navigateTo('settings')}
+          onOpenDownloads={() => navigateTo('downloads')}
+        />
