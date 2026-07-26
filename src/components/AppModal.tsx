@@ -85,3 +85,89 @@ export function ActionSheetModal({
                   onPress={() => {
                     onClose();
                     opt.onPress();
+                  }}
+                  accessibilityLabel={opt.text}
+                >
+                  {opt.renderIcon ? (
+                    opt.renderIcon()
+                  ) : opt.icon ? (
+                    <Ic n={opt.icon} c={iconColor} s={20} w={2} />
+                  ) : null}
+                  <T
+                    style={[
+                      s.optionText,
+                      { color: textColor, fontFamily: isDestructive ? F.s : F.m },
+                    ]}
+                  >
+                    {opt.text}
+                  </T>
+                </Pressable>
+              );
+            })}
+        </View>
+
+        {/* Cancel Button */}
+        <Pressable
+          style={({ pressed }) => [
+            s.cancelButton,
+            { backgroundColor: theme.cardElevated },
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={onClose}
+          accessibilityLabel={cancelText}
+        >
+          <T style={[s.cancelButtonText, { color: theme.blue }]}>{cancelText}</T>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+interface ConfirmDialogModalProps {
+  visible: boolean;
+  title: string;
+  message?: string;
+  confirmText?: string;
+  confirmStyle?: 'default' | 'destructive';
+  cancelText?: string;
+  onConfirm: () => void;
+  onClose?: () => void;
+  onCancel?: () => void;
+}
+
+/**
+ * Apple HIG Confirmation Dialog Modal
+ * Replaces default Alert.alert dialogs with consistent theme styling
+ */
+export function ConfirmDialogModal({
+  visible,
+  title,
+  message,
+  confirmText = 'Confirm',
+  confirmStyle = 'default',
+  cancelText = 'Cancel',
+  onConfirm,
+  onClose,
+  onCancel,
+}: ConfirmDialogModalProps) {
+  const theme = useTheme();
+  const handleClose = useCallback(() => {
+    if (onCancel) {
+      onCancel();
+    } else if (onClose) {
+      onClose();
+    }
+  }, [onCancel, onClose]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, handleClose]);
+
+  if (!visible) return null;
+
+  const isDestructive = confirmStyle === 'destructive';
