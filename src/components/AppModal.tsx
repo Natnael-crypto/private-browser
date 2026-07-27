@@ -171,3 +171,91 @@ export function ConfirmDialogModal({
   if (!visible) return null;
 
   const isDestructive = confirmStyle === 'destructive';
+
+  return (
+    <View style={s.overlayCenter}>
+      <Pressable style={s.backdrop} onPress={handleClose} accessibilityLabel="Cancel" />
+      <View
+        style={[
+          s.dialogCard,
+          {
+            backgroundColor: theme.cardElevated,
+            borderColor: theme.sep,
+          },
+        ]}
+      >
+        <View style={s.dialogContent}>
+          <T style={[s.dialogTitle, { color: theme.text }]}>{title}</T>
+          {message ? (
+            <T style={[s.dialogMessage, { color: theme.sec }]}>{message}</T>
+          ) : null}
+        </View>
+
+        <View style={[s.dialogButtonsRow, { borderTopColor: theme.sep }]}>
+          <Pressable
+            style={({ pressed }) => [s.dialogBtn, pressed && { opacity: 0.6 }]}
+            onPress={handleClose}
+            accessibilityLabel={cancelText}
+          >
+            <T style={[s.dialogBtnText, { color: theme.blue, fontFamily: F.r }]}>
+              {cancelText}
+            </T>
+          </Pressable>
+
+          <View style={[s.dialogDivider, { backgroundColor: theme.sep }]} />
+
+          <Pressable
+            style={({ pressed }) => [s.dialogBtn, pressed && { opacity: 0.6 }]}
+            onPress={() => {
+              handleClose();
+              onConfirm();
+            }}
+            accessibilityLabel={confirmText}
+          >
+            <T
+              style={[
+                s.dialogBtnText,
+                { color: isDestructive ? theme.red : theme.blue, fontFamily: F.s },
+              ]}
+            >
+              {confirmText}
+            </T>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+interface NoticeDialogModalProps {
+  visible: boolean;
+  title: string;
+  message?: string;
+  buttonText?: string;
+  onClose: () => void;
+}
+
+/**
+ * Apple HIG Single-action Notice Dialog Modal
+ */
+export function NoticeDialogModal({
+  visible,
+  title,
+  message,
+  buttonText = 'OK',
+  onClose,
+}: NoticeDialogModalProps) {
+  const theme = useTheme();
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
+
+  if (!visible) return null;
+
+  return (
