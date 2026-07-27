@@ -259,3 +259,90 @@ export function NoticeDialogModal({
   if (!visible) return null;
 
   return (
+    <View style={s.overlayCenter}>
+      <Pressable style={s.backdrop} onPress={onClose} accessibilityLabel="Dismiss" />
+      <View
+        style={[
+          s.dialogCard,
+          {
+            backgroundColor: theme.cardElevated,
+            borderColor: theme.sep,
+          },
+        ]}
+      >
+        <View style={s.dialogContent}>
+          <T style={[s.dialogTitle, { color: theme.text }]}>{title}</T>
+          {message ? (
+            <T style={[s.dialogMessage, { color: theme.sec }]}>{message}</T>
+          ) : null}
+        </View>
+
+        <View style={[s.dialogButtonsRow, { borderTopColor: theme.sep }]}>
+          <Pressable
+            style={({ pressed }) => [s.dialogBtn, pressed && { opacity: 0.6 }]}
+            onPress={onClose}
+            accessibilityLabel={buttonText}
+          >
+            <T style={[s.dialogBtnText, { color: theme.blue, fontFamily: F.s }]}>
+              {buttonText}
+            </T>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    justifyContent: 'flex-end',
+  },
+  overlayCenter: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: Platform.OS === 'android' ? 48 : 0,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'android' ? 72 : 36,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  grabber: {
+    width: 36,
+    height: 5,
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  header: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 14,
