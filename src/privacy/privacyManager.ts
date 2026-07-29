@@ -42,3 +42,17 @@ export class PrivacyManager {
       let changed = false;
 
       // Check each param
+      const keysToDelete: string[] = [];
+      params.forEach((_, key) => {
+        const lowerKey = key.toLowerCase();
+        if (TRACKING_PARAMS.has(lowerKey) || lowerKey.startsWith('utm_')) {
+          keysToDelete.push(key);
+          changed = true;
+        }
+      });
+
+      keysToDelete.forEach((k) => params.delete(k));
+
+      if (changed) {
+        url.search = params.toString() ? `?${params.toString()}` : '';
+        return url.toString();
