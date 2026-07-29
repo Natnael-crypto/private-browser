@@ -27,3 +27,18 @@ const TRACKING_PARAMS = new Set([
   'zanpid',
   'wickedid',
   'twclid',
+  'sc_clid',
+]);
+
+export class PrivacyManager {
+  /**
+   * Strip tracking query parameters from URL (PRV-8)
+   */
+  public static sanitizeUrl(rawUrl: string, enabled: boolean = true): string {
+    if (!enabled) return rawUrl;
+    try {
+      const url = new URL(rawUrl);
+      const params = new URLSearchParams(url.search);
+      let changed = false;
+
+      // Check each param
