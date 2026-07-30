@@ -85,3 +85,17 @@ export class PrivacyManager {
     return `
       (function() {
         try {
+          // PRV-9: Global Privacy Control (GPC)
+          ${
+            options.sendGpc
+              ? `
+            if (!('globalPrivacyControl' in navigator)) {
+              Object.defineProperty(navigator, 'globalPrivacyControl', {
+                get: () => true,
+                configurable: false,
+                enumerable: true,
+              });
+            }
+          `
+              : ''
+          }
