@@ -71,3 +71,17 @@ export class PrivacyManager {
     if (rawUrl.startsWith('http://')) {
       return 'https://' + rawUrl.slice(7);
     }
+    return rawUrl;
+  }
+
+  /**
+   * Privacy JavaScript to inject into every WebView page before document loads (PRV-9, PRV-10, PRV-11)
+   */
+  public static getPrivacyInjectedScript(options: {
+    sendGpc: boolean;
+    blockWebRtc: boolean;
+    reduceFingerprinting: boolean;
+  }): string {
+    return `
+      (function() {
+        try {
