@@ -56,3 +56,18 @@ export class PrivacyManager {
       if (changed) {
         url.search = params.toString() ? `?${params.toString()}` : '';
         return url.toString();
+      }
+      return rawUrl;
+    } catch {
+      return rawUrl;
+    }
+  }
+
+  /**
+   * Enforce HTTPS upgrade (PRV-7)
+   */
+  public static upgradeToHttps(rawUrl: string, enabled: boolean = true): string {
+    if (!enabled) return rawUrl;
+    if (rawUrl.startsWith('http://')) {
+      return 'https://' + rawUrl.slice(7);
+    }
