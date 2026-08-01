@@ -48,3 +48,28 @@ const BUNDLED_BLOCK_PATTERNS: (string | RegExp)[] = [
   /segment\.io/i,
   /amplitude\.com/i,
   /mixpanel\.com/i,
+  /hotjar\.com/i,
+  /clarity\.ms/i,
+  /sentry\.io\/api\//i,
+  /bugsnag\.com/i,
+  /branch\.io/i,
+  /appsflyer\.com/i,
+  /adjust\.com/i,
+];
+
+/**
+ * CSS selectors for cosmetic filtering (BLK-6, BLK-9)
+ * Hides banner ads, sponsored boxes, and annoying cookie popups
+ */
+const COSMETIC_SELECTORS = [
+  // Generic ad classes/IDs
+  '.ad-banner',
+  '.adsbox',
+  '.advertisement',
+  'ins.adsbygoogle',
+  'div[id^="google_ads_"]',
+  'div[id^="div-gpt-ad"]',
+  'iframe[src*="doubleclick"]',
+  'iframe[src*="googlesyndication"]',
+  'iframe[id^="google_ads_frame"]',
+  '.sponsored-post',
