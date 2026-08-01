@@ -23,3 +23,28 @@ const BUNDLED_BLOCK_PATTERNS: (string | RegExp)[] = [
 
   // Major Ad Networks
   /criteo\.com/i,
+  /criteo\.net/i,
+  /outbrain\.com/i,
+  /taboola\.com/i,
+  /rubiconproject\.com/i,
+  /adnxs\.com/i,
+  /adtech\.de/i,
+  /pubmatic\.com/i,
+  /openx\.net/i,
+  /smartadserver\.com/i,
+  /media\.net/i,
+  /scorecardresearch\.com/i,
+  /moatads\.com/i,
+  /adroll\.com/i,
+  /popads\.net/i,
+  /propellerads\.com/i,
+  /exoclick\.com/i,
+  /adsterra\.com/i,
+  /mgid\.com/i,
+  /zergnet\.com/i,
+  /revcontent\.com/i,
+
+  // Telemetry & Device Fingerprinters
+  /segment\.io/i,
+  /amplitude\.com/i,
+  /mixpanel\.com/i,
