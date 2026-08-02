@@ -122,3 +122,28 @@ export class BlockerEngine {
     if (!enabled || siteAllowed) {
       return `/* Blocker disabled for this page */`;
     }
+
+    const cssContent = JSON.stringify(this.getCosmeticCss());
+    const patternsJson = JSON.stringify(
+      BUNDLED_BLOCK_PATTERNS.map((p) => (typeof p === 'string' ? p : p.source))
+    );
+
+    return `
+      (function() {
+        try {
+          // 1. Inject Cosmetic CSS (BLK-6, BLK-9)
+          function injectCosmetic() {
+            if (document.getElementById('__pb_cosmetic_style')) return;
+            const style = document.createElement('style');
+            style.id = '__pb_cosmetic_style';
+            style.textContent = ${cssContent};
+            (document.head || document.documentElement).appendChild(style);
+          }
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', injectCosmetic);
+          } else {
+            injectCosmetic();
+          }
+
+          // 2. Network Interceptor for fetch and XHR inside the page (BLK-2)
+          const blockedRules = ${patternsJson}.map(r => new RegExp(r, 'i'));
