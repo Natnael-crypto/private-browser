@@ -97,3 +97,28 @@ export class BlockerEngine {
 
     for (const pattern of BUNDLED_BLOCK_PATTERNS) {
       if (typeof pattern === 'string') {
+        if (url.includes(pattern)) return true;
+      } else if (pattern.test(url)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Generate CSS string for cosmetic filtering (BLK-6, BLK-9)
+   */
+  public static getCosmeticCss(): string {
+    const selectorRule = COSMETIC_SELECTORS.join(',\n');
+    return `${selectorRule} { display: none !important; visibility: hidden !important; height: 0 !important; max-height: 0 !important; overflow: hidden !important; opacity: 0 !important; pointer-events: none !important; }`;
+  }
+
+  /**
+   * Generate Injected script that:
+   * 1. Injects cosmetic CSS into document
+   * 2. Overrides fetch and XMLHttpRequest to intercept and count/block tracker calls in the page
+   */
+  public static getBlockerInjectedScript(enabled: boolean, siteAllowed: boolean): string {
+    if (!enabled || siteAllowed) {
+      return `/* Blocker disabled for this page */`;
+    }
