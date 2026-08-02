@@ -73,3 +73,27 @@ const COSMETIC_SELECTORS = [
   'iframe[src*="googlesyndication"]',
   'iframe[id^="google_ads_frame"]',
   '.sponsored-post',
+  '.native-ad',
+  '.taboola-container',
+  '.outbrain-container',
+  // Cookie notices & consent banners (BLK-9)
+  '#onetrust-consent-sdk',
+  '#cmpbox',
+  '.cookie-banner',
+  '.cookie-notice',
+  '.cookie-consent',
+  '#cookie-notice',
+  '#cookieConsent',
+  '.qc-cmp2-container',
+];
+
+export class BlockerEngine {
+  /**
+   * Check if a URL should be blocked based on domain rules
+   */
+  public static shouldBlockUrl(url: string, isAllowedHost: boolean): boolean {
+    if (isAllowedHost) return false;
+    if (!url) return false;
+
+    for (const pattern of BUNDLED_BLOCK_PATTERNS) {
+      if (typeof pattern === 'string') {
