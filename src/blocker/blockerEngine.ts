@@ -147,3 +147,28 @@ export class BlockerEngine {
 
           // 2. Network Interceptor for fetch and XHR inside the page (BLK-2)
           const blockedRules = ${patternsJson}.map(r => new RegExp(r, 'i'));
+          function isUrlBlocked(u) {
+            if (!u || typeof u !== 'string') return false;
+            return blockedRules.some(re => re.test(u));
+          }
+
+          function reportBlocked(u) {
+            try {
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'pb_tracker_blocked',
+                  url: u
+                }));
+              }
+            } catch(e) {}
+          }
+
+          // Override window.fetch
+          const originalFetch = window.fetch;
+          window.fetch = function(input, init) {
+            const url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+            if (isUrlBlocked(url)) {
+              reportBlocked(url);
+              return Promise.reject(new TypeError('Network request blocked by Private Browser'));
+            }
+            return originalFetch.apply(this, arguments);
