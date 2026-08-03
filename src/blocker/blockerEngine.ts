@@ -172,3 +172,26 @@ export class BlockerEngine {
               return Promise.reject(new TypeError('Network request blocked by Private Browser'));
             }
             return originalFetch.apply(this, arguments);
+          };
+
+          // Override XMLHttpRequest
+          const originalOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url) {
+            this.__pb_url = url;
+            return originalOpen.apply(this, arguments);
+          };
+
+          const originalSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function() {
+            if (isUrlBlocked(this.__pb_url)) {
+              reportBlocked(this.__pb_url);
+              // Drop request silently
+              return;
+            }
+            return originalSend.apply(this, arguments);
+          };
+        } catch(e) {}
+      })();
+    `;
+  }
+}
