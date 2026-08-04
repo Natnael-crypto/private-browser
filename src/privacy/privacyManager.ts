@@ -99,3 +99,18 @@ export class PrivacyManager {
           `
               : ''
           }
+
+          // PRV-10: WebRTC IP Leak Shield (Force relay-only / neutralize RTCPeerConnection)
+          ${
+            options.blockWebRtc
+              ? `
+            if (window.RTCPeerConnection) {
+              const OriginalRTC = window.RTCPeerConnection;
+              window.RTCPeerConnection = function(config, constraints) {
+                const cfg = config || {};
+                cfg.iceTransportPolicy = 'relay';
+                return new OriginalRTC(cfg, constraints);
+              };
+              window.RTCPeerConnection.prototype = OriginalRTC.prototype;
+            }
+          `
