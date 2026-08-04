@@ -114,3 +114,18 @@ export class PrivacyManager {
               window.RTCPeerConnection.prototype = OriginalRTC.prototype;
             }
           `
+              : ''
+          }
+
+          // PRV-11: Fingerprinting Reductions (Canvas, AudioContext, Navigator hardware)
+          ${
+            options.reduceFingerprinting
+              ? `
+            if (navigator.hardwareConcurrency) {
+              Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });
+            }
+            if (navigator.deviceMemory) {
+              Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+            }
+          `
+              : ''
