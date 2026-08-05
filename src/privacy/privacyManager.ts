@@ -143,3 +143,16 @@ export class PrivacyManager {
             if (url && !isStandardWeb(url)) {
               if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'pb_external_scheme_attempt',
+                  url: String(url)
+                }));
+              }
+              return null;
+            }
+            return origWindowOpen ? origWindowOpen.apply(this, arguments) : null;
+          };
+        } catch(e) {}
+      })();
+    `;
+  }
+}
