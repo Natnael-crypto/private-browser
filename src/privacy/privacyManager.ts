@@ -129,3 +129,17 @@ export class PrivacyManager {
             }
           `
               : ''
+          }
+
+          // Protect against silent client-side deep links & external app launches
+          const isStandardWeb = function(u) {
+            if (!u || typeof u !== 'string') return true;
+            var s = u.trim().toLowerCase();
+            return s.startsWith('http://') || s.startsWith('https://') || s.startsWith('about:') || s.startsWith('data:') || s.startsWith('blob:') || s.startsWith('/') || s.startsWith('#') || s.startsWith('javascript:');
+          };
+
+          const origWindowOpen = window.open;
+          window.open = function(url, target, features) {
+            if (url && !isStandardWeb(url)) {
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
