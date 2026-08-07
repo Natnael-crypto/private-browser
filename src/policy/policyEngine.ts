@@ -94,3 +94,50 @@ export class PolicyEngine {
       if (!siteSetting && host.includes('.')) {
         const parts = host.split('.');
         if (parts.length > 2) {
+          const parentHost = parts.slice(-2).join('.');
+          siteSetting = await db.getSiteSettings(parentHost);
+        }
+      }
+    }
+
+    // Determine User Agent
+    let effectiveUa = '';
+    if (siteSetting?.ua_mode && siteSetting.ua_mode !== 'default') {
+      if (siteSetting.ua_mode === 'custom' && siteSetting.ua_value) {
+        effectiveUa = siteSetting.ua_value;
+      } else if (siteSetting.ua_mode in USER_AGENT_PRESETS) {
+        effectiveUa = USER_AGENT_PRESETS[siteSetting.ua_mode as keyof typeof USER_AGENT_PRESETS];
+      }
+    } else {
+      if (globalConfig.uaPreset === 'custom' && globalConfig.customUa) {
+        effectiveUa = globalConfig.customUa;
+      } else if (globalConfig.uaPreset in USER_AGENT_PRESETS) {
+        effectiveUa = USER_AGENT_PRESETS[globalConfig.uaPreset as keyof typeof USER_AGENT_PRESETS];
+      }
+    }
+
+    // Resolve flags
+    const javascriptEnabled =
+      siteSetting?.js !== null && siteSetting?.js !== undefined
+        ? siteSetting.js === 1
+        : globalConfig.globalJs;
+
+    const blockerEnabled =
+      siteSetting?.blocker !== null && siteSetting?.blocker !== undefined
+        ? siteSetting.blocker === 1
+        : globalConfig.blockAds;
+
+    const imagesEnabled =
+      siteSetting?.images !== null && siteSetting?.images !== undefined
+        ? siteSetting.images === 1
+        : globalConfig.imagesEnabled;
+
+    const thirdPartyScripts =
+      siteSetting?.third_party_scripts !== null && siteSetting?.third_party_scripts !== undefined
+        ? siteSetting.third_party_scripts === 1
+        : globalConfig.blockThirdPartyScripts;
+
+    const fpProtection =
+      siteSetting?.fp_protection !== null && siteSetting?.fp_protection !== undefined
+        ? siteSetting.fp_protection === 1
+        : globalConfig.reduceFingerprinting;
