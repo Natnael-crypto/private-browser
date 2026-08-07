@@ -46,3 +46,51 @@ export interface ResolvedPolicy {
   javascriptEnabled: boolean;
   blockThirdPartyScripts: boolean;
   blockAutoplay: boolean;
+  blockLocalNetwork: boolean;
+  imagesEnabled: boolean;
+  blockWebFonts: boolean;
+  blockServiceWorkers: boolean;
+  blockBeacons: boolean;
+  blockClipboardRead: boolean;
+  detectInsecureForms: boolean;
+  fingerprintProtection: boolean;
+  blockerEnabled: boolean;
+  httpsOnly: boolean;
+  sendGpc: boolean;
+  userAgent: string;
+  language: string;
+  timezone: string;
+  roundScreen: boolean;
+}
+
+export class PolicyEngine {
+  /**
+   * Resolve effective policy with precedence:
+   * 1. Exact host override in site_settings
+   * 2. Parent domain override (e.g. example.com for sub.example.com)
+   * 3. Global config
+   */
+  public static async resolvePolicy(
+    urlOrHost: string,
+    globalConfig: GlobalSecurityConfig
+  ): Promise<ResolvedPolicy> {
+    let host = '';
+    try {
+      if (urlOrHost.includes('://')) {
+        host = new URL(urlOrHost).hostname.toLowerCase();
+      } else {
+        host = urlOrHost.toLowerCase().split('/')[0].split(':')[0];
+      }
+    } catch {
+      host = urlOrHost.toLowerCase();
+    }
+
+    // Lookup exact host
+    let siteSetting: SiteSettingsRecord | null = null;
+    if (host) {
+      siteSetting = await db.getSiteSettings(host);
+
+      // If not found, try parent domain
+      if (!siteSetting && host.includes('.')) {
+        const parts = host.split('.');
+        if (parts.length > 2) {
