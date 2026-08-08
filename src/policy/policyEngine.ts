@@ -141,3 +141,51 @@ export class PolicyEngine {
       siteSetting?.fp_protection !== null && siteSetting?.fp_protection !== undefined
         ? siteSetting.fp_protection === 1
         : globalConfig.reduceFingerprinting;
+
+    return {
+      host,
+      javascriptEnabled,
+      blockThirdPartyScripts: thirdPartyScripts,
+      blockAutoplay: globalConfig.blockAutoplay,
+      blockLocalNetwork: globalConfig.blockLocalNetwork,
+      imagesEnabled,
+      blockWebFonts: globalConfig.blockWebFonts,
+      blockServiceWorkers: globalConfig.blockServiceWorkers,
+      blockBeacons: globalConfig.blockBeacons,
+      blockClipboardRead: globalConfig.blockClipboardRead,
+      detectInsecureForms: globalConfig.detectInsecureForms,
+      fingerprintProtection: fpProtection,
+      blockerEnabled,
+      httpsOnly: globalConfig.httpsOnly,
+      sendGpc: globalConfig.sendGpc,
+      userAgent: effectiveUa,
+      language: globalConfig.language,
+      timezone: globalConfig.timezone,
+      roundScreen: globalConfig.roundScreen,
+    };
+  }
+
+  /**
+   * Build client injected guards script for this resolved policy
+   */
+  public static getInjectedScript(policy: ResolvedPolicy): string {
+    const opts: SecurityGuardOptions = {
+      currentHost: policy.host,
+      userAgent: policy.userAgent,
+      language: policy.language,
+      timezone: policy.timezone,
+      roundScreen: policy.roundScreen,
+      reduceFingerprinting: policy.fingerprintProtection,
+      blockThirdPartyScripts: policy.blockThirdPartyScripts,
+      blockAutoplay: policy.blockAutoplay,
+      blockLocalNetwork: policy.blockLocalNetwork,
+      blockImages: !policy.imagesEnabled,
+      blockWebFonts: policy.blockWebFonts,
+      blockServiceWorkers: policy.blockServiceWorkers,
+      blockBeacons: policy.blockBeacons,
+      blockClipboardRead: policy.blockClipboardRead,
+      detectInsecureForms: policy.detectInsecureForms,
+    };
+    return buildInjectedSecurityGuards(opts);
+  }
+}
