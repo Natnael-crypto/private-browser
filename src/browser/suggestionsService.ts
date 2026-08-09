@@ -17,3 +17,12 @@ export class SuggestionsService {
 
     // Don't suggest for full URLs or schemes
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return [];
+
+    const cacheKey = `${engine}:${trimmed.toLowerCase()}`;
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
+    }
+
+    let url = '';
+    switch (engine) {
+      case 'DuckDuckGo':
