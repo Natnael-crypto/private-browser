@@ -26,3 +26,13 @@ export class SuggestionsService {
     let url = '';
     switch (engine) {
       case 'DuckDuckGo':
+        url = `https://duckduckgo.com/ac/?q=${encodeURIComponent(trimmed)}&type=list`;
+        break;
+      case 'Brave':
+        url = `https://search.brave.com/api/suggest?q=${encodeURIComponent(trimmed)}`;
+        break;
+      case 'Bing':
+        url = `https://api.bing.com/osjson.aspx?query=${encodeURIComponent(trimmed)}`;
+        break;
+      case 'Ecosia':
+        url = `https://ac.ecosia.org/autocomplete?q=${encodeURIComponent(trimmed)}&type=list`;
