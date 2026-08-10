@@ -36,3 +36,12 @@ export class SuggestionsService {
         break;
       case 'Ecosia':
         url = `https://ac.ecosia.org/autocomplete?q=${encodeURIComponent(trimmed)}&type=list`;
+        break;
+      case 'Google':
+      default:
+        url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(trimmed)}`;
+        break;
+    }
+
+    try {
+      const controller = new AbortController();
