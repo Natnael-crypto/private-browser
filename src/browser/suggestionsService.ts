@@ -54,3 +54,13 @@ export class SuggestionsService {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         },
       });
+
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) return [];
+
+      const data = await resp.json();
+
+      // Standard OpenSearch format: [query, [suggestions...]]
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        const results = (data[1] as any[]).map((item) => (typeof item === 'string' ? item : item?.phrase || '')).filter(Boolean).slice(0, 7);
