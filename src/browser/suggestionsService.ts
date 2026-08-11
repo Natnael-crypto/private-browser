@@ -64,3 +64,12 @@ export class SuggestionsService {
       // Standard OpenSearch format: [query, [suggestions...]]
       if (Array.isArray(data) && Array.isArray(data[1])) {
         const results = (data[1] as any[]).map((item) => (typeof item === 'string' ? item : item?.phrase || '')).filter(Boolean).slice(0, 7);
+        this.cache.set(cacheKey, results);
+        return results;
+      }
+
+      // Object array format (e.g. DDG raw [{ phrase: "..." }])
+      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && data[0]?.phrase) {
+        const results = data.map((d: any) => d.phrase).filter(Boolean).slice(0, 7);
+        this.cache.set(cacheKey, results);
+        return results;
