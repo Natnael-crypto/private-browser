@@ -35,3 +35,38 @@ export class LockManager {
    */
   public static async setMasterPassword(password: string): Promise<boolean> {
     if (!password || password.length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
+    try {
+      const salt = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        `${Date.now()}-${Math.random()}`
+      );
+
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        `${password}:${salt}`
+      );
+
+      await SecureStore.setItemAsync(STORAGE_KEYS.SALT, salt);
+      await SecureStore.setItemAsync(STORAGE_KEYS.MASTER_HASH, hash);
+      // Wrap database key with master password KDF (SEC-1, SEC-7)
+      await DbKeyManager.wrapKeyWithPassword(password);
+      this.failedAttempts = 0;
+      this.lockedUntil = 0;
+      return true;
+    } catch (e) {
+      console.error('Failed to store password', e);
+      return false;
+    }
+  }
+
+  /**
+   * Setup duress password (LCK-3)
+   * When entered on lock screen, silently executes full wipe and unlocks empty app
+   */
+  public static async setDuressPassword(password: string): Promise<boolean> {
+    if (!password || password.length < 6) {
+      throw new Error('Duress password must be at least 6 characters long.');
+    }
