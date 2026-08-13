@@ -70,3 +70,40 @@ export class LockManager {
     if (!password || password.length < 6) {
       throw new Error('Duress password must be at least 6 characters long.');
     }
+
+    try {
+      const salt = (await SecureStore.getItemAsync(STORAGE_KEYS.SALT)) || 'duress_salt';
+      const hash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        `${password}:${salt}`
+      );
+      await SecureStore.setItemAsync(STORAGE_KEYS.DURESS_HASH, hash);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public static async isDuressPasswordSet(): Promise<boolean> {
+    try {
+      const hash = await SecureStore.getItemAsync(STORAGE_KEYS.DURESS_HASH);
+      return !!hash;
+    } catch {
+      return false;
+    }
+  }
+
+  public static async removeDuressPassword(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(STORAGE_KEYS.DURESS_HASH);
+    } catch {}
+  }
+
+  public static async getMaxFailedAttempts(): Promise<number> {
+    try {
+      const val = await SecureStore.getItemAsync(STORAGE_KEYS.MAX_FAILED_ATTEMPTS);
+      return val ? parseInt(val, 10) : 5;
+    } catch {
+      return 5;
+    }
+  }
