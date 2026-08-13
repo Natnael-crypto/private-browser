@@ -107,3 +107,40 @@ export class LockManager {
       return 5;
     }
   }
+
+  public static async setMaxFailedAttempts(max: number): Promise<void> {
+    await SecureStore.setItemAsync(STORAGE_KEYS.MAX_FAILED_ATTEMPTS, String(max));
+  }
+
+  /**
+   * Verify entered password with increasing backoff delay on failures and duress wipe
+   */
+  public static async verifyPassword(password: string): Promise<{
+    success: boolean;
+    backoffSec?: number;
+    error?: string;
+    duressTriggered?: boolean;
+    wiped?: boolean;
+  }> {
+    const now = Date.now();
+    if (this.lockedUntil > now) {
+      const remainingSec = Math.ceil((this.lockedUntil - now) / 1000);
+      return { success: false, backoffSec: remainingSec, error: `Too many attempts. Try again in ${remainingSec}s.` };
+    }
+
+    try {
+      const storedHash = await SecureStore.getItemAsync(STORAGE_KEYS.MASTER_HASH);
+      const salt = await SecureStore.getItemAsync(STORAGE_KEYS.SALT);
+      const duressHash = await SecureStore.getItemAsync(STORAGE_KEYS.DURESS_HASH);
+
+      if (!storedHash || !salt) {
+        return { success: false, error: 'No master password set.' };
+      }
+
+      const inputHash = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        `${password}:${salt}`
+      );
+
+      // Check Duress Password (LCK-3)
+      if (duressHash && inputHash === duressHash) {
