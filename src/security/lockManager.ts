@@ -144,3 +144,39 @@ export class LockManager {
 
       // Check Duress Password (LCK-3)
       if (duressHash && inputHash === duressHash) {
+        await this.fullDataWipe();
+        return { success: true, duressTriggered: true };
+      }
+
+      if (inputHash === storedHash) {
+        this.failedAttempts = 0;
+        this.lockedUntil = 0;
+        this.lastActiveTime = Date.now();
+        return { success: true };
+      } else {
+        this.failedAttempts++;
+
+        // Check Max Failed Attempts wipe (LCK-4)
+        const maxAttempts = await this.getMaxFailedAttempts();
+        if (maxAttempts > 0 && this.failedAttempts >= maxAttempts) {
+          await this.fullDataWipe();
+          return {
+            success: false,
+            wiped: true,
+            error: `Maximum failed attempts reached (${maxAttempts}). All data has been securely erased.`,
+          };
+        }
+
+        // Backoff delay: 3 attempts -> 5s, 4 -> 15s, 5+ -> 30s
+        let delaySec = 0;
+        if (this.failedAttempts >= 5) {
+          delaySec = 30;
+        } else if (this.failedAttempts >= 4) {
+          delaySec = 15;
+        } else if (this.failedAttempts >= 3) {
+          delaySec = 5;
+        }
+
+        if (delaySec > 0) {
+          this.lockedUntil = Date.now() + delaySec * 1000;
+          return { success: false, backoffSec: delaySec, error: `Incorrect password. Locked for ${delaySec}s.` };
