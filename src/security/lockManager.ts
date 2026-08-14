@@ -180,3 +180,40 @@ export class LockManager {
         if (delaySec > 0) {
           this.lockedUntil = Date.now() + delaySec * 1000;
           return { success: false, backoffSec: delaySec, error: `Incorrect password. Locked for ${delaySec}s.` };
+        }
+
+        return { success: false, error: 'Incorrect password.' };
+      }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Verification error' };
+    }
+  }
+
+  /**
+   * Biometric check availability
+   */
+  public static async canUseBiometrics(): Promise<boolean> {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      return compatible && enrolled;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Authenticate via Biometrics (Fingerprint / Face ID)
+   */
+  public static async authenticateBiometrics(): Promise<boolean> {
+    try {
+      const res = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock Private Browser',
+        fallbackLabel: 'Use master password',
+        disableDeviceFallback: false,
+      });
+      if (res.success) {
+        this.failedAttempts = 0;
+        this.lockedUntil = 0;
+        this.lastActiveTime = Date.now();
+        return true;
