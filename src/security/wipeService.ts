@@ -17,3 +17,22 @@ const SECURE_STORE_KEYS = [
  * WipeService (SEC-4)
  * Unified wipe service for "Clear everything", panic wipe, duress password entry,
  * and wipe after N failed unlock attempts.
+ */
+export class WipeService {
+  /**
+   * Executes a full, verified wipe of all app data:
+   * 1. Clears database tables and vacuums SQLite storage
+   * 2. Clears all user keys in SecureStore
+   * 3. Deletes all downloaded media, temp segments, and thumbnails from disk
+   * 4. Resets browser tabs and restores default state
+   * 5. Verifies disk cleanup
+   */
+  public static async wipeAll(): Promise<{ success: boolean; filesDeleted: number }> {
+    let filesDeleted = 0;
+
+    try {
+      // 1. Wipe database records
+      await db.clearEverythingNow();
+    } catch (e) {
+      console.warn('Wipe: Database clear warning', e);
+    }
