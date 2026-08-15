@@ -382,3 +382,66 @@ class AppDatabase {
     if (!this.db) return;
     await this.db.runAsync(
       'UPDATE downloads SET bytes_done = ?, segments_done = ?, segments_total = ? WHERE id = ?;',
+      [bytesDone, segmentsDone, segmentsTotal, id]
+    );
+  }
+
+  public async setDownloadState(
+    id: string,
+    state: DownloadRecord['state'],
+    bytesDone?: number,
+    fileUri?: string,
+    error?: string,
+    completedAt?: number
+  ): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'UPDATE downloads SET state = ?, bytes_done = COALESCE(?, bytes_done), file_uri = COALESCE(?, file_uri), error = ?, completed_at = ? WHERE id = ?;',
+      [state, bytesDone ?? null, fileUri ?? null, error ?? null, completedAt ?? null, id]
+    );
+  }
+
+  public async getDownloads(): Promise<(DownloadRecord & { video?: VideoRecord })[]> {
+    await this.init();
+    if (!this.db) return [];
+    const rows = await this.db.getAllAsync<any>(
+      `SELECT d.*, 
+              v.source_page_url as v_source, v.title as v_title,
+              v.format as v_format, v.resolution as v_resolution,
+              v.size_bytes as v_size, v.thumbnail as v_thumb, v.media_url as v_media
+       FROM downloads d
+       LEFT JOIN videos v ON d.video_id = v.id
+       ORDER BY d.started_at DESC;`
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      video_id: r.video_id,
+      state: r.state,
+      bytes_done: r.bytes_done,
+      segments_done: r.segments_done,
+      segments_total: r.segments_total,
+      temp_name: r.temp_name,
+      headers_json: r.headers_json,
+      file_uri: r.file_uri,
+      final_name: r.final_name,
+      error: r.error,
+      started_at: r.started_at,
+      completed_at: r.completed_at,
+      video: r.v_source || r.v_title || r.v_thumb
+        ? {
+            id: r.video_id,
+            source_page_url: r.v_source || '',
+            title: r.v_title || r.final_name || 'Saved Video',
+            format: r.v_format,
+            resolution: r.v_resolution,
+            size_bytes: r.v_size,
+            thumbnail: r.v_thumb,
+            media_url: r.v_media,
+            protected: 0,
+            detected_at: r.started_at,
+          }
+        : undefined,
+    }));
+  }
