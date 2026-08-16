@@ -55,3 +55,22 @@ export class WipeService {
         const files = await FileSystem.readDirectoryAsync(FileSystem.documentDirectory);
         for (const file of files) {
           // Do not delete internal sqlite db directory structure directly while open
+          if (file.endsWith('.db') || file.endsWith('.db-wal') || file.endsWith('.db-shm')) {
+            continue;
+          }
+          const uri = `${FileSystem.documentDirectory}${file}`;
+          try {
+            await FileSystem.deleteAsync(uri, { idempotent: true });
+            filesDeleted++;
+          } catch {}
+        }
+      }
+
+      // 4. Delete temp files in cacheDirectory
+      if (FileSystem.cacheDirectory) {
+        const cacheFiles = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
+        for (const file of cacheFiles) {
+          const uri = `${FileSystem.cacheDirectory}${file}`;
+          try {
+            await FileSystem.deleteAsync(uri, { idempotent: true });
+            filesDeleted++;
