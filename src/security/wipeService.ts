@@ -36,3 +36,22 @@ export class WipeService {
     } catch (e) {
       console.warn('Wipe: Database clear warning', e);
     }
+
+    try {
+      // 2. Clear SecureStore credentials and master keys
+      for (const key of SECURE_STORE_KEYS) {
+        try {
+          await SecureStore.deleteItemAsync(key);
+        } catch {}
+      }
+      await DbKeyManager.clearKey();
+    } catch (e) {
+      console.warn('Wipe: SecureStore clear warning', e);
+    }
+
+    try {
+      // 3. Delete files in documentDirectory
+      if (FileSystem.documentDirectory) {
+        const files = await FileSystem.readDirectoryAsync(FileSystem.documentDirectory);
+        for (const file of files) {
+          // Do not delete internal sqlite db directory structure directly while open
