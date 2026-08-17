@@ -94,3 +94,100 @@ export function buildInjectedSecurityGuards(options: SecurityGuardOptions): stri
         `
             : ''
         }
+
+        // --- FPH-1 & FPH-2 & FPH-3: Fingerprint Hardening ---
+        ${
+          reduceFingerprinting
+            ? `
+          try {
+            // Hardware Concurrency & Memory
+            if ('hardwareConcurrency' in navigator) {
+              Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4, configurable: true });
+            }
+            if ('deviceMemory' in navigator) {
+              Object.defineProperty(navigator, 'deviceMemory', { get: () => 8, configurable: true });
+            }
+
+            // Neutralize Battery API
+            if ('getBattery' in navigator) {
+              navigator.getBattery = undefined;
+            }
+
+            // Neutralize Sensors
+            delete window.AmbientLightSensor;
+            delete window.Accelerometer;
+            delete window.Gyroscope;
+            delete window.Magnetometer;
+
+            // Neutralize Media Devices Enumeration (FPH-3)
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+              navigator.mediaDevices.enumerateDevices = async function() {
+                return [
+                  { deviceId: 'default', kind: 'audioinput', label: 'Microphone', groupId: 'group1' },
+                  { deviceId: 'default', kind: 'videoinput', label: 'Camera', groupId: 'group2' }
+                ];
+              };
+            }
+
+            // AudioContext noise
+            if (window.AudioBuffer && window.AudioBuffer.prototype.getChannelData) {
+              const origGetChannelData = AudioBuffer.prototype.getChannelData;
+              AudioBuffer.prototype.getChannelData = function(channel) {
+                const data = origGetChannelData.call(this, channel);
+                if (data && data.length > 0) {
+                  data[data.length - 1] += 0.0000001;
+                }
+                return data;
+              };
+            }
+          } catch(e) {}
+        `
+            : ''
+        }
+
+        // --- SCR-2: Block Third-Party Scripts ---
+        ${
+          blockThirdPartyScripts
+            ? `
+          try {
+            function isThirdParty(src) {
+              if (!src) return false;
+              try {
+                const u = new URL(src, window.location.href);
+                const pageDomain = window.location.hostname.split('.').slice(-2).join('.');
+                const scriptDomain = u.hostname.split('.').slice(-2).join('.');
+                return pageDomain && scriptDomain && pageDomain !== scriptDomain;
+              } catch(e) {
+                return false;
+              }
+            }
+
+            const origCreateElement = document.createElement;
+            document.createElement = function(tagName, options) {
+              const el = origCreateElement.call(document, tagName, options);
+              if (tagName && String(tagName).toLowerCase() === 'script') {
+                const origSetAttr = el.setAttribute;
+                el.setAttribute = function(name, val) {
+                  if (name && name.toLowerCase() === 'src' && isThirdParty(val)) {
+                    return;
+                  }
+                  return origSetAttr.apply(this, arguments);
+                };
+                Object.defineProperty(el, 'src', {
+                  set: function(val) {
+                    if (isThirdParty(val)) {
+                      return;
+                    }
+                    el.setAttribute('src', val);
+                  },
+                  get: function() {
+                    return el.getAttribute('src') || '';
+                  }
+                });
+              }
+              return el;
+            };
+          } catch(e) {}
+        `
+            : ''
+        }
