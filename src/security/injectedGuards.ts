@@ -191,3 +191,100 @@ export function buildInjectedSecurityGuards(options: SecurityGuardOptions): stri
         `
             : ''
         }
+
+        // --- SCR-3: Autoplay handled via WebView prop mediaPlaybackRequiresUserAction ---
+
+        // --- SCR-4: Block Local Network Access ---
+        ${
+          blockLocalNetwork
+            ? `
+          try {
+            function isLocalHost(host) {
+              if (!host) return false;
+              const h = host.toLowerCase().trim();
+              if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]') return true;
+              if (h.startsWith('10.') || h.startsWith('192.168.') || h.startsWith('169.254.')) return true;
+              if (/^172\\.(1[6-9]|2[0-9]|3[0-1])\\./.test(h)) return true;
+              if (h.endsWith('.local') || h.endsWith('.internal')) return true;
+              return false;
+            }
+
+            // Intercept fetch
+            if (window.fetch) {
+              const origFetch = window.fetch;
+              window.fetch = function(resource, init) {
+                try {
+                  const urlStr = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+                  const u = new URL(urlStr, window.location.href);
+                  if (isLocalHost(u.hostname)) {
+                    return Promise.reject(new Error('Blocked local network access for security (SCR-4)'));
+                  }
+                } catch(e) {}
+                return origFetch.apply(this, arguments);
+              };
+            }
+
+            // Intercept XMLHttpRequest
+            if (window.XMLHttpRequest) {
+              const origOpen = XMLHttpRequest.prototype.open;
+              XMLHttpRequest.prototype.open = function(method, url) {
+                let isBlocked = false;
+                try {
+                  const u = new URL(url, window.location.href);
+                  if (isLocalHost(u.hostname)) {
+                    isBlocked = true;
+                  }
+                } catch(e) {}
+                if (isBlocked) {
+                  throw new Error('Blocked local network access for security (SCR-4)');
+                }
+                return origOpen.apply(this, arguments);
+              };
+            }
+
+            // Intercept WebSocket
+            if (window.WebSocket) {
+              const OrigWS = window.WebSocket;
+              window.WebSocket = function(url, protocols) {
+                try {
+                  const u = new URL(url, window.location.href);
+                  if (isLocalHost(u.hostname)) {
+                    throw new Error('Blocked local network access for security (SCR-4)');
+                  }
+                } catch(e) {
+                  if (e.message && e.message.includes('SCR-4')) throw e;
+                }
+                return new OrigWS(url, protocols);
+              };
+              window.WebSocket.prototype = OrigWS.prototype;
+            }
+          } catch(e) {}
+        `
+            : ''
+        }
+
+        // --- SCR-5: Block Images (img & picture only, keep SVG icons & Video players intact) ---
+        ${
+          blockImages
+            ? `
+          try {
+            const imgStyle = document.createElement('style');
+            imgStyle.innerHTML = 'img, picture { display: none !important; opacity: 0 !important; visibility: hidden !important; }';
+            (document.head || document.documentElement).appendChild(imgStyle);
+          } catch(e) {}
+        `
+            : ''
+        }
+
+        // --- SCR-6: Block Remote Web Fonts ---
+        ${
+          blockWebFonts
+            ? `
+          try {
+            const fontStyle = document.createElement('style');
+            fontStyle.innerHTML = '@font-face { font-family: none !important; src: none !important; }';
+            (document.head || document.documentElement).appendChild(fontStyle);
+          } catch(e) {}
+        `
+            : ''
+        }
