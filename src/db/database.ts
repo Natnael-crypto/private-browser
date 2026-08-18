@@ -445,3 +445,68 @@ class AppDatabase {
         : undefined,
     }));
   }
+
+  public async deleteDownload(downloadId: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM downloads WHERE id = ?;', [downloadId]);
+  }
+
+  /**
+   * SEC-5: Remove details only
+   * Deletes the videos row (cascades to downloads) and keeps the file.
+   * Runs VACUUM so database has no trace.
+   */
+  public async removeVideoDetailsOnly(videoId: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM videos WHERE id = ?;', [videoId]);
+    await this.db.runAsync('DELETE FROM downloads WHERE video_id = ?;', [videoId]);
+    await this.db.execAsync('VACUUM;');
+  }
+
+  /**
+   * SEC-5 / Phase 7: Clear all video data
+   * Purges all video and download metadata and vacuums database.
+   */
+  public async clearAllVideoData(): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM downloads;');
+    await this.db.runAsync('DELETE FROM videos;');
+    await this.db.execAsync('VACUUM;');
+  }
+
+  // --- Proxy Profiles (NET-1 to NET-6) ---
+  public async getProxyProfiles(): Promise<ProxyProfileRecord[]> {
+    await this.init();
+    if (!this.db) return [];
+    return await this.db.getAllAsync<ProxyProfileRecord>(
+      'SELECT * FROM proxy_profiles ORDER BY created_at DESC;'
+    );
+  }
+
+  public async getActiveProxyProfile(): Promise<ProxyProfileRecord | null> {
+    await this.init();
+    if (!this.db) return null;
+    return await this.db.getFirstAsync<ProxyProfileRecord>(
+      'SELECT * FROM proxy_profiles WHERE active = 1 LIMIT 1;'
+    );
+  }
+
+  public async saveProxyProfile(profile: ProxyProfileRecord): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO proxy_profiles (
+        id, name, type, host, port, username, password, active, fail_closed, bypass_list, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        profile.id,
+        profile.name,
+        profile.type,
+        profile.host,
+        profile.port,
+        profile.username ?? null,
+        profile.password ?? null,
+        profile.active,
