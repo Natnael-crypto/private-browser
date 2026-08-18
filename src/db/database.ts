@@ -510,3 +510,67 @@ class AppDatabase {
         profile.username ?? null,
         profile.password ?? null,
         profile.active,
+        profile.fail_closed,
+        profile.bypass_list ?? null,
+        profile.created_at,
+      ]
+    );
+  }
+
+  public async setActiveProxyProfile(id: string | null): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('UPDATE proxy_profiles SET active = 0;');
+    if (id) {
+      await this.db.runAsync('UPDATE proxy_profiles SET active = 1 WHERE id = ?;', [id]);
+    }
+  }
+
+  public async deleteProxyProfile(id: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM proxy_profiles WHERE id = ?;', [id]);
+  }
+
+  // --- VPN Profiles (VPN-1 to VPN-11) ---
+  public async getVpnProfiles(): Promise<VpnProfileRecord[]> {
+    await this.init();
+    if (!this.db) return [];
+    return await this.db.getAllAsync<VpnProfileRecord>(
+      'SELECT * FROM vpn_profiles ORDER BY created_at DESC;'
+    );
+  }
+
+  public async getActiveVpnProfile(): Promise<VpnProfileRecord | null> {
+    await this.init();
+    if (!this.db) return null;
+    return await this.db.getFirstAsync<VpnProfileRecord>(
+      'SELECT * FROM vpn_profiles WHERE active = 1 LIMIT 1;'
+    );
+  }
+
+  public async saveVpnProfile(profile: VpnProfileRecord): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO vpn_profiles (
+        id, name, kind, config, username, password, kill_switch, auto_connect, active, created_at, last_used
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        profile.id,
+        profile.name,
+        profile.kind,
+        profile.config,
+        profile.username ?? null,
+        profile.password ?? null,
+        profile.kill_switch,
+        profile.auto_connect,
+        profile.active,
+        profile.created_at,
+        profile.last_used ?? null,
+      ]
+    );
+  }
+
+  public async setActiveVpnProfile(id: string | null): Promise<void> {
+    await this.init();
