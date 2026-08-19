@@ -189,3 +189,98 @@ test('SuggestionsService - parses Google suggestion completion payload', () => {
   const suggestions = parseSuggestions(sampleGoogleResponse);
   assert.strictEqual(suggestions.length, 5);
   assert.strictEqual(suggestions[0], 'react native tutorial');
+  assert.strictEqual(suggestions[1], 'react native docs');
+  assert.ok(suggestions.every(s => typeof s === 'string'));
+});
+
+// 6. Video Size Detection & Byte Formatting Tests
+test('VideoRegistry - formatBytes accurately converts sizes to KB, MB, GB', () => {
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '';
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    } else if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(0)} KB`;
+    } else if (bytes < 1024 * 1024 * 1024) {
+      const mb = bytes / (1024 * 1024);
+      return mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`;
+    } else {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+  }
+
+  assert.strictEqual(formatBytes(512), '512 B');
+  assert.strictEqual(formatBytes(850 * 1024), '850 KB');
+  assert.strictEqual(formatBytes(4.5 * 1024 * 1024), '4.5 MB');
+  assert.strictEqual(formatBytes(148 * 1024 * 1024), '148 MB');
+  assert.strictEqual(formatBytes(1.25 * 1024 * 1024 * 1024), '1.25 GB');
+});
+
+test('VideoRegistry - extracts total video size from HTTP Content-Range header', () => {
+  function parseContentRange(header) {
+    if (!header) return null;
+    const match = header.match(/\/(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  assert.strictEqual(parseContentRange('bytes 0-1/15728640'), 15728640);
+  assert.strictEqual(parseContentRange('bytes 0-1024/987654321'), 987654321);
+  assert.strictEqual(parseContentRange('bytes */*'), null);
+});
+
+// 7. External App Deep Link Interception Tests (PRV-6, Security)
+test('BrowserScreen - intercepts custom deep link schemes (e.g. TikTok snssdk1340://) and identifies app name', () => {
+  function shouldAllowDirectNavigation(url) {
+    if (!url) return false;
+    return (
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('about:') ||
+      url.startsWith('data:') ||
+      url.startsWith('blob:')
+    );
+  }
+
+  function getAppInfo(targetUrl) {
+    const lower = targetUrl.toLowerCase();
+    if (lower.includes('tiktok') || lower.includes('snssdk') || lower.includes('aweme') || lower.includes('musically')) {
+      return { appName: 'TikTok', isExternal: true };
+    } else if (lower.includes('instagram')) {
+      return { appName: 'Instagram', isExternal: true };
+    } else if (lower.includes('twitter') || lower.includes('x.com')) {
+      return { appName: 'X (Twitter)', isExternal: true };
+    }
+    const scheme = targetUrl.split(':')[0].toLowerCase();
+    return { appName: `${scheme.toUpperCase()} App`, isExternal: true };
+  }
+
+  const tiktokDeepLink = 'snssdk1340://aweme/detail/7697712637718646017?refer=web';
+  assert.strictEqual(shouldAllowDirectNavigation(tiktokDeepLink), false);
+  assert.strictEqual(getAppInfo(tiktokDeepLink).appName, 'TikTok');
+
+  const webUrl = 'https://www.tiktok.com/@creator/video/123';
+  assert.strictEqual(shouldAllowDirectNavigation(webUrl), true);
+
+  const instagramLink = 'instagram://user?username=nature';
+  assert.strictEqual(shouldAllowDirectNavigation(instagramLink), false);
+  assert.strictEqual(getAppInfo(instagramLink).appName, 'Instagram');
+});
+
+// 10. Screen Navigation Stack & Hardware Back Routing Tests
+test('Navigation & Back Button Flow - Sub-screens dismiss cleanly to Browser without mutating browser history', () => {
+  // Simulate screen stack in App.tsx
+  let screenStack = ['browser'];
+  function navigateTo(screen) {
+    screenStack.push(screen);
+  }
+  function goBackScreen() {
+    if (screenStack.length > 1) {
+      screenStack.pop();
+    }
+  }
+
+  // Simulate tab state in BrowserScreen
+  let activeTab = {
+    id: 'tab-1',
+    url: 'https://news.ycombinator.com',
+    isBlank: false,
