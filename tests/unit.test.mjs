@@ -284,3 +284,97 @@ test('Navigation & Back Button Flow - Sub-screens dismiss cleanly to Browser wit
     id: 'tab-1',
     url: 'https://news.ycombinator.com',
     isBlank: false,
+    history: ['about:blank', 'https://news.ycombinator.com'],
+    historyIndex: 1,
+    canGoBack: true,
+    canGoForward: false,
+  };
+
+  function simulateBrowserBack() {
+    if (activeTab.historyIndex > 0) {
+      activeTab.historyIndex -= 1;
+      activeTab.url = activeTab.history[activeTab.historyIndex];
+      if (activeTab.url === 'about:blank') {
+        activeTab.isBlank = true;
+      }
+    }
+  }
+
+  // User navigates from Browser to Downloads screen
+  navigateTo('downloads');
+  assert.strictEqual(screenStack[screenStack.length - 1], 'downloads');
+
+  // Video is played in Downloads screen
+  let playingVideo = { id: 101, title: 'Downloaded Video' };
+
+  // Step 1: User presses back while video is playing -> Dismisses video, stays on downloads
+  function handleDownloadsBack() {
+    if (playingVideo) {
+      playingVideo = null;
+      return true;
+    }
+    // No dialog/video: navigate back to previous screen
+    goBackScreen();
+    return true;
+  }
+
+  const handledVideoClose = handleDownloadsBack();
+  assert.strictEqual(handledVideoClose, true);
+  assert.strictEqual(playingVideo, null, 'Video player must be dismissed on first back press');
+  assert.strictEqual(screenStack[screenStack.length - 1], 'downloads', 'User must remain on downloads screen after closing video');
+  assert.strictEqual(activeTab.url, 'https://news.ycombinator.com', 'Browser history MUST NOT be mutated while on downloads screen');
+
+  // Step 2: User presses back on Downloads screen -> Navigates back to BrowserScreen
+  const handledDownloadsClose = handleDownloadsBack();
+  assert.strictEqual(handledDownloadsClose, true);
+  assert.strictEqual(screenStack[screenStack.length - 1], 'browser', 'Must return to browser screen on second back press');
+  assert.strictEqual(activeTab.url, 'https://news.ycombinator.com', 'Browser must retain current webpage when returning from downloads');
+
+  // Step 3: Now user is back on BrowserScreen -> Pressing back navigates back in browser history
+  function handleBrowserBack(isActiveScreen) {
+    if (!isActiveScreen) return false;
+    simulateBrowserBack();
+    return true;
+  }
+
+  const handledBrowserBack = handleBrowserBack(screenStack[screenStack.length - 1] === 'browser');
+  assert.strictEqual(handledBrowserBack, true);
+  assert.strictEqual(activeTab.isBlank, true, 'Navigating back in browser returns to start page');
+  assert.strictEqual(activeTab.url, 'about:blank');
+});
+
+// 11. Search Results to Home Page Navigation Tests (Prevents redirect loop)
+test('Search Results Back Navigation - Exits search results back to home/blank page even if webview has internal redirect (nativeCanGoBack: true)', () => {
+  let tab = {
+    id: 'tab-search',
+    url: 'https://www.google.com/search?q=expo&oq=expo...',
+    isBlank: false,
+    history: ['about:blank', 'https://www.google.com/search?q=expo&oq=expo...'],
+    historyIndex: 1,
+    nativeCanGoBack: true, // Internal redirect in WebView session
+    canGoBack: true, // UI button is enabled
+    canGoForward: false,
+  };
+
+  function handleBack() {
+    if (tab.isBlank) return 'none';
+    const hist = tab.history && tab.history.length > 0 ? tab.history : ['about:blank'];
+    const idx = typeof tab.historyIndex === 'number' ? tab.historyIndex : hist.length - 1;
+
+    // Direct exit to home start page when at index <= 1 (search results or first page)
+    if (idx <= 1 || hist[idx - 1] === 'about:blank' || !hist[idx - 1]) {
+      tab.url = 'about:blank';
+      tab.isBlank = true;
+      tab.historyIndex = 0;
+      tab.nativeCanGoBack = false;
+      tab.nativeCanGoForward = true;
+      tab.canGoBack = false;
+      tab.canGoForward = hist.length > 1;
+      return 'home_page';
+    }
+
+    if (tab.nativeCanGoBack) {
+      return 'webview_back';
+    }
+    return 'none';
+  }
