@@ -74,3 +74,20 @@ export class WipeService {
           try {
             await FileSystem.deleteAsync(uri, { idempotent: true });
             filesDeleted++;
+          } catch {}
+        }
+      }
+    } catch (e) {
+      console.warn('Wipe: Filesystem delete warning', e);
+    }
+
+    try {
+      // 5. Reset browser store state to fresh single blank tab
+      useBrowserStore.getState().resetToInitialState();
+    } catch (e) {
+      console.warn('Wipe: Browser store reset warning', e);
+    }
+
+    return { success: true, filesDeleted };
+  }
+}
