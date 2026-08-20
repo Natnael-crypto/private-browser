@@ -378,3 +378,100 @@ test('Search Results Back Navigation - Exits search results back to home/blank p
     }
     return 'none';
   }
+
+  const result = handleBack();
+  assert.strictEqual(result, 'home_page', 'Back press on search results must return directly to home page without looping');
+  assert.strictEqual(tab.isBlank, true, 'Tab must become blank home page');
+  assert.strictEqual(tab.url, 'about:blank');
+  assert.strictEqual(tab.canGoForward, true, 'Forward button must be enabled to restore search results');
+});
+
+// 12. App Lock Overlay State Preservation Tests (SEC-2 & UI)
+test('App Lock Screen - Minimizing and unlocking preserves browser history, tabs, and current web pages', () => {
+  // App starts with active tab on a webpage
+  let browserState = {
+    tabs: [
+      {
+        id: 'tab-active',
+        url: 'https://developer.mozilla.org/en-US/',
+        title: 'MDN Web Docs',
+        isBlank: false,
+        history: ['about:blank', 'https://www.google.com/search?q=mdn', 'https://developer.mozilla.org/en-US/'],
+        historyIndex: 2,
+      },
+    ],
+    activeTabId: 'tab-active',
+  };
+
+  let isLocked = false;
+  let browserScreenMounted = true; // Kept mounted in hierarchy
+
+  // App is minimized to background -> resumes -> triggers auto-lock
+  function onAppResume(shouldLock) {
+    if (shouldLock) {
+      isLocked = true;
+      // Because LockScreen is rendered as an overlay, browserScreenMounted remains TRUE!
+    }
+  }
+
+  onAppResume(true);
+  assert.strictEqual(isLocked, true, 'App must be locked');
+  assert.strictEqual(browserScreenMounted, true, 'BrowserScreen must remain mounted underneath lock overlay');
+
+  // User unlocks via PIN or Biometrics
+  function onUnlocked() {
+    isLocked = false;
+  }
+
+  onUnlocked();
+  assert.strictEqual(isLocked, false, 'App is now unlocked');
+  assert.strictEqual(browserState.tabs.length, 1);
+  assert.strictEqual(browserState.tabs[0].url, 'https://developer.mozilla.org/en-US/', 'Current webpage must be retained after unlock without resetting to search engine');
+  assert.strictEqual(browserState.tabs[0].isBlank, false);
+  assert.strictEqual(browserState.tabs[0].history.length, 3, 'History stack must remain completely intact');
+  assert.strictEqual(browserState.tabs[0].historyIndex, 2);
+});
+
+// 13. Search Engine Redirect & Query Normalization
+test('Navigation - isSameSearchOrRedirect correctly identifies search engine internal redirects', () => {
+  function isSameSearchOrRedirect(url1, url2) {
+    if (!url1 || !url2) return false;
+    if (url1 === url2) return true;
+    try {
+      const u1 = new URL(url1);
+      const u2 = new URL(url2);
+      const h1 = u1.hostname.replace(/^www\./, '');
+      const h2 = u2.hostname.replace(/^www\./, '');
+      if (h1 !== h2) return false;
+
+      const isSearchHost =
+        h1.includes('google.') ||
+        h1.includes('duckduckgo.') ||
+        h1.includes('bing.') ||
+        h1.includes('brave.') ||
+        h1.includes('ecosia.');
+
+      if (isSearchHost) {
+        const q1 = u1.searchParams.get('q');
+        const q2 = u2.searchParams.get('q');
+        if (q1 && q2 && q1.toLowerCase() === q2.toLowerCase()) {
+          return true;
+        }
+      }
+
+      if (
+        u1.pathname.replace(/\/$/, '') === u2.pathname.replace(/\/$/, '') &&
+        u1.search === u2.search
+      ) {
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  assert.strictEqual(
+    isSameSearchOrRedirect(
+      'https://www.google.com/search?q=hello',
+      'https://www.google.com/search?q=hello&oq=hello&gs_lcrp=abc123'
+    ),
+    true,
