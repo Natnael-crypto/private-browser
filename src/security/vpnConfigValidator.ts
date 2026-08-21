@@ -14,3 +14,19 @@ const FORBIDDEN_OPENVPN_DIRECTIVES = [
   'client-connect',
   'client-disconnect',
   'auth-user-pass-verify',
+  'tls-verify',
+  'management',
+  'plugin',
+  'script-security',
+];
+
+export interface ValidationResult {
+  valid: boolean;
+  error?: string;
+  kind?: 'openvpn' | 'wireguard';
+  detectedRemote?: string;
+}
+
+export class VpnConfigValidator {
+  /**
+   * Validate an OpenVPN configuration (.ovpn)
