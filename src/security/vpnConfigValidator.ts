@@ -30,3 +30,18 @@ export interface ValidationResult {
 export class VpnConfigValidator {
   /**
    * Validate an OpenVPN configuration (.ovpn)
+   */
+  public static validateOpenVpn(rawConfig: string): ValidationResult {
+    if (!rawConfig || typeof rawConfig !== 'string') {
+      return { valid: false, error: 'Configuration content is empty.' };
+    }
+
+    const lines = rawConfig.split(/\r?\n/);
+    let hasClientOrRemote = false;
+    let remoteHost = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('#') || line.startsWith(';')) {
+        continue;
+      }
