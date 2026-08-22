@@ -61,3 +61,18 @@ export class VpnConfigValidator {
         hasClientOrRemote = true;
         if (directive === 'remote' && parts[1]) {
           remoteHost = parts[1] + (parts[2] ? `:${parts[2]}` : '');
+        }
+      }
+    }
+
+    if (!hasClientOrRemote) {
+      return {
+        valid: false,
+        error: 'Missing required OpenVPN "client" or "remote" directives.',
+      };
+    }
+
+    return {
+      valid: true,
+      kind: 'openvpn',
+      detectedRemote: remoteHost || 'OpenVPN Server',
