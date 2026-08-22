@@ -45,3 +45,19 @@ export class VpnConfigValidator {
       if (!line || line.startsWith('#') || line.startsWith(';')) {
         continue;
       }
+
+      const parts = line.split(/\s+/);
+      const directive = parts[0].toLowerCase();
+
+      // Check for forbidden directives that could execute local code
+      if (FORBIDDEN_OPENVPN_DIRECTIVES.includes(directive)) {
+        return {
+          valid: false,
+          error: `Security violation: Directive "${directive}" is forbidden because it can execute arbitrary scripts.`,
+        };
+      }
+
+      if (directive === 'client' || directive === 'remote') {
+        hasClientOrRemote = true;
+        if (directive === 'remote' && parts[1]) {
+          remoteHost = parts[1] + (parts[2] ? `:${parts[2]}` : '');
