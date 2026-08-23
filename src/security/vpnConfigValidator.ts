@@ -76,3 +76,19 @@ export class VpnConfigValidator {
       valid: true,
       kind: 'openvpn',
       detectedRemote: remoteHost || 'OpenVPN Server',
+    };
+  }
+
+  /**
+   * Validate a WireGuard configuration (.conf)
+   */
+  public static validateWireGuard(rawConfig: string): ValidationResult {
+    if (!rawConfig || typeof rawConfig !== 'string') {
+      return { valid: false, error: 'Configuration content is empty.' };
+    }
+
+    const lines = rawConfig.split(/\r?\n/);
+    let hasInterface = false;
+    let hasPrivateKey = false;
+    let hasPeer = false;
+    let endpoint = '';
