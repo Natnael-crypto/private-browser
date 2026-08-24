@@ -217,3 +217,39 @@ export class LockManager {
         this.lockedUntil = 0;
         this.lastActiveTime = Date.now();
         return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Biometric toggle state in settings
+   */
+  public static async isBiometricEnabled(): Promise<boolean> {
+    try {
+      const val = await SecureStore.getItemAsync(STORAGE_KEYS.BIOMETRIC_ENABLED);
+      return val !== 'false'; // default true if enrolled
+    } catch {
+      return true;
+    }
+  }
+
+  public static async setBiometricEnabled(enabled: boolean): Promise<void> {
+    await SecureStore.setItemAsync(STORAGE_KEYS.BIOMETRIC_ENABLED, enabled ? 'true' : 'false');
+  }
+
+  /**
+   * Auto-lock timeout in seconds
+   */
+  public static async getAutoLockTimeout(): Promise<string> {
+    try {
+      const val = await SecureStore.getItemAsync(STORAGE_KEYS.AUTO_LOCK_TIMEOUT);
+      return val || '0'; // default Immediately
+    } catch {
+      return '0';
+    }
+  }
+
+  public static async setAutoLockTimeout(timeoutSec: string): Promise<void> {
