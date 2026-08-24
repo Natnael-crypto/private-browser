@@ -270,3 +270,274 @@ Two layers, because a JS-only WebView cannot see response headers of every reque
 - iOS cannot intercept `http(s)` sub-resources with `WKWebView`; iOS stays on Layer A plus probing. State this limitation in the docs.
 
 Put the shared rule engine in plain TypeScript (`src/video/detection/rules.ts`) with **no React/Expo imports**, so it is unit-testable and the injected JS can be generated from the same source (or kept in sync by a test).
+
+### 5.4 Site extractors to port from `injected/`
+
+Create `src/video/extractors/<site>.ts`, selected by URL host. Each file in `injected/` is a content script (sometimes with an `_untrusted.js` twin that runs in the page's own JS world, which in a WebView means "inject into the page"). Read each, beautify it, and port the parsing logic; replace `chrome.runtime.sendMessage` with `window.ReactNativeWebView.postMessage`.
+
+| File | Matches | Notes |
+|---|---|---|
+| `youtube.js` + `youtube_untrusted.js` | `*.youtube.com` | 1 MB bundle. **Ask the owner before porting** — it needs signature/n-parameter deciphering, breaks often, and YouTube's terms forbid downloading. Do last, optional. |
+| `vimeo.js` + `vimeo_untrusted.js` | `*.vimeo.com` | Also uses the `player.vimeo.com/.../config` JSON rule (5.1 step 3). |
+| `facebook.js` | `*.facebook.com`, `*.instagram.com` | Large bundle. |
+| `vk.js` | `vk.com`, `vk.ru`, `vkvideo.ru`, `live.vkvideo.ru` | |
+| `ok.js` | `ok.ru`, `m.ok.ru` | |
+| `bilibili.js` + `_untrusted` | `bilibili.com`, `bilibili.tv` | |
+| `kick.js` | `kick.com` | |
+| `canva.js` | `canva.com` | |
+| `iq.js` + `_untrusted` | `iq.com` | Uses the `/dash` config rule. |
+| `twitcasting.js` | `twitcasting.tv` | |
+| `osmosis.js` | `osmosis.org` | |
+| `chaturbate.js`, `javrank.js` (+`_untrusted`), `taiav.js`, `xgplayer_crypto*.js` | adult sites | **Port only if the owner confirms** he wants them. |
+| `activate.js`, `premium.js` | `downloadhelper.net` | **Do not port** (licensing). |
+
+Order: Vimeo → Facebook/Instagram → VK/OK → Kick/Bilibili/others → (optional) YouTube.
+
+### 5.5 Registry and UI fixes
+
+- Store detected media **per tab** (`Map<tabId, Map<hash, MediaItem>>`); do not clear on tab switch; clear a tab's list on top-level navigation (and not on in-page SPA changes that keep the same player).
+- Dedupe with the extension's hash (URL, or playlist text + URL).
+- Item model must carry: `type` (`direct | hls_master | hls_media | dash | embed`), `sentHeaders`, `supportsByteRanges`, `duration`, `qualities[]`, `audioTracks[]`, `subtitles[]`, `hasDrm`, `needsDecrypt (AES-128)`, `sourcePageUrl`, `frameUrl`.
+- Never show `Embed` items as downloadable. Show them as "Open player".
+- DRM items: show as "Protected — can't be downloaded", with no download button.
+- The floating video button and the "Videos on this page" sheet must show: title, thumbnail, type, resolution list, audio tracks, size if known, and **a per-item quality picker**.
+- Remove the invented `'720p'` default; show "Auto" or hide.
+
+### 5.6 Acceptance for Phase 3
+
+- A unit test suite imports `rules.ts` and passes fixtures for every rule in 5.1 (segment ignored, 499,999-byte file ignored, 20 MB anti-spam, `Content-Type` mapping, filename from `Content-Disposition`, HLS by content-type/URL/`/api/playlist/master/`, DASH by content-type/URL).
+- Detection works on: a plain `<video src>` MP4, an HLS master with separate audio, an HLS with AES-128, a DASH stream, a page where the player is inside an iframe, a blob/MSE player, and at least Vimeo + one more site extractor.
+- `docs/extension-audit.md` is rewritten with an honest table: what is ported, what is not, and why.
+
+---
+
+## 6. Phase 4 — New download system
+
+### 6.1 Design
+
+Create `src/downloads/engine/` with these parts:
+
+| Part | Responsibility |
+|---|---|
+| `DownloadQueue` | Max concurrent **jobs** (default 2), job states `queued → preparing → downloading → merging → completed / failed / paused / canceled`, persisted in the encrypted DB so jobs survive app restarts. |
+| `SegmentPool` | Per job. A **worker pool with a semaphore**, not batches: as soon as one segment finishes the next starts. Default concurrency 6 (extension uses 4; make it configurable 2–16 and adapt: lower it after repeated errors). |
+| `Fetcher` | Retry with exponential backoff (extension uses up to 6 attempts), `AbortController` per job so Pause/Cancel stop in-flight requests, honours `Range`, replays the stored request headers and native cookies. |
+| `SegmentWriter` | **Writes each segment straight to its own temp file on the native side** (for example with the file-system module's native download API to `…/<job>/<index>.seg`), never through Base64 in JS. If the installed SDK offers a file-handle API with `Uint8Array` writes, that is an acceptable alternative. |
+| `Decryptor` | AES-128 CBC decrypt per segment (key fetch + IV from `#EXT-X-KEY` / media sequence), natively or with WebCrypto-compatible code that does not run per-byte in JS. |
+| `Muxer` | Joins video + audio (+ subtitles) into one MP4 without re-encoding. See 6.3. |
+| `SpeedMeter` | See 6.2. |
+| `Notifier` | Foreground service + notification with progress, speed, Pause/Cancel actions (Android), so downloads continue in the background. |
+
+### 6.2 Speed indicator (required)
+
+Implement `SpeedMeter` as a **sliding window**: keep `(timestamp, totalBytesDone)` samples for the last 5 seconds; `speed = Δbytes / Δtime` over the window, then smooth with an exponential moving average. Feed it from the **Fetcher** on every received chunk, not once per finished segment. Rules:
+
+- Show speed from the first second (no "0 KB/s" while segments are in flight).
+- Throttle UI notifications to about 4 per second per job.
+- Show: `bytes done / total (or "unknown size")`, `speed` (MB/s and Mbps), `ETA`, `segments done/total`, `% progress`. If total size is unknown, show indeterminate progress based on segment count — **never invent a size**.
+- Show it in **all** of these places: Downloads list rows, the "Videos on this page" sheet (inline progress under the item), a small floating pill in the browser when a download is active (tap → Downloads) with total speed, the Android notification, and a header row on the Downloads screen with total speed across jobs.
+
+### 6.3 Output format and muxing
+
+- ffmpeg-kit (the common React Native FFmpeg wrapper) **was retired upstream in 2025**; do not add it without checking a maintained fork and its licence *(verify)*.
+- Preferred: a small **native module** that remuxes with platform APIs without re-encoding: Android `MediaMuxer` + `MediaExtractor`, iOS `AVMutableComposition` / `AVAssetExportSession` (passthrough). This handles: TS/fMP4 segments → MP4, separate audio + video → one MP4, subtitles → `mov_text` where supported.
+- Fallback when remux fails or a codec/container is not supported: keep the concatenated `.ts` / `.m4s` with the **honest extension** (`.ts`), say so in the UI, and offer "Share" to an external player. Never name a `.ts` file `.mp4`.
+- Direct MP4/WebM files: no remux needed; keep the real extension.
+
+### 6.4 Per-type behaviour
+
+| Type | Behaviour |
+|---|---|
+| Direct file | Native resumable download. If the server supports `Accept-Ranges`, split large files into 4 parallel ranges and join natively. Resume after restart using the partial file + `Range`. |
+| HLS | Parse master (variants, `#EXT-X-MEDIA` audio/subtitle groups). User picks quality (+ audio language). Download the video playlist **and** the audio playlist, handle `#EXT-X-MAP`, `#EXT-X-BYTERANGE`, AES-128 keys, then mux. Skip live streams (no `#EXT-X-ENDLIST`) with a clear message, or offer "record until stopped" later. |
+| DASH | Port the extension's MPD handling (`Df`) including `SegmentTemplate`, `SegmentList`, `SegmentBase`, multiple periods. Download video + audio tracks, then mux. |
+| DRM / Embed | Not downloadable. No button. |
+
+### 6.5 Data and privacy
+
+- In-progress files use random names (already the case — keep it). Final name from title via the sanitiser, keep the original `sourcePageUrl` in the DB row, and keep the "open source page" action.
+- "Delete record" and "Delete file + record" must also remove thumbnails and temp segment folders.
+- No size guesses. Remove the `155189248` constant.
+- Wi-Fi-only setting (currently unwired) must really block starting/continuing jobs on mobile data, and pause running jobs when Wi-Fi drops.
+
+### 6.6 Optional but recommended: real network-level ad/tracker blocking (INJ-9)
+
+If the owner wants "ad blocker" to mean what users expect, add Layer B (section 5.3) with a **block decision** in `shouldInterceptRequest` (return an empty response for matches) using a compiled hostname set (EasyList/EasyPrivacy-derived, bundled, updated through the app's own signed update path only). Count real blocks per tab. Per-site allow list uses the same host matching. Until this exists, do not claim "blocks ads".
+
+### 6.7 Acceptance for Phase 4
+
+- A 500 MB direct MP4 and a 200-segment HLS download on the same connection are at least **3× faster** than the old code (record numbers in `docs/CHANGELOG.md`).
+- The speed indicator updates at least 3 times per second, is visible in every place listed in 6.2, and stays correct when paused/resumed.
+- Kill the app mid-download → reopen → the job shows as paused and resumes.
+- HLS with separate audio plays **with sound**; an AES-128 stream plays; a DASH stream downloads.
+- Cancel really aborts network traffic (verify in logs).
+
+---
+
+## 7. Feature audit — broken, unfinished or fake (decide per row)
+
+| Feature | Today | Action |
+|---|---|---|
+| Proxy (HTTP/HTTPS/SOCKS5, profiles, test, fail-closed) | UI only; no code uses it | Implement through the platform WebView proxy override (Android `androidx.webkit` ProxyController, iOS `WKWebsiteDataStore.proxyConfigurations`; both need a small native module *(verify)*), or hide the whole screen. "Block if proxy fails" must really block. |
+| OpenVPN / WireGuard import, kill switch, per-app routing | UI + config validator only; no tunnel exists | A VPN needs an Android `VpnService` implementation (large native work). Until done: **remove the UI** or label it "Coming soon (not active)". Do not show a connect switch. |
+| User agent presets / custom / per-site | Global UA is applied to the WebView; per-site not applied | Apply per-site through the new per-tab policy (3.3). Keep JS-visible values (`navigator.*`) consistent with the HTTP UA. |
+| Language / timezone spoofing | Only `Intl.DateTimeFormat` is patched; `Date`, `getTimezoneOffset`, `toLocaleString` still reveal the real timezone | Patch consistently or remove the option. |
+| Screen size rounding | Works partially (`screen.*` only; `innerWidth` etc. unchanged) | Document limits or remove. |
+| Fingerprint hardening | Canvas noise harmful (INJ-3), `deviceMemory`/`hardwareConcurrency` fixed values, enumerateDevices fake | Fix canvas; keep simple spoofs; remove claims you can't prove. |
+| Block cookies (`blockCookies`) | Not applied | Implement with isolation props + per-tab cookie clearing, or remove. |
+| JS off globally / per site | Global prop works; per-site not applied; toggling needs a reload | Apply per-site; reload the tab after the change; show a banner "JavaScript is off for this site". |
+| Block third-party scripts / images / fonts / beacons / autoplay / service workers | Partly cosmetic (INJ-1…INJ-8) | See 3.3. |
+| Permissions (`defaultDenyPermissions`, per-site `site_permissions`) | UI only; mic/camera auto-granted | Implement per-site prompts (3.2). |
+| `blockDriveByNav`, `confirmAppRedirects` | UI only | Wire into `onShouldStartLoadWithRequest`. |
+| `wifiOnly` | UI only | Wire into the download queue (6.5). |
+| `screenOffLock`, `privateKeyboard` | UI only | Wire (lock when screen turns off; `autoComplete="off"`, `importantForAutofill="no"`, no suggestions/learning on every `TextInput` in the address bar). |
+| Desktop mode (`desktopMode`, `toggleDesktopMode`) | State exists, no UI, not used | Implement (desktop UA + viewport) or delete. |
+| Per-site settings page (`site_settings`, `PolicyEngine.resolvePolicy`) | Saved, never applied | Apply (PERF-2). |
+| Panic wipe / "Clear everything" / duress password / wipe after N failures | Wipes DB rows only | Use `WipeService` (section 4, item 4). |
+| Biometric unlock | Works through `expo-local-authentication` | Keep; also bind biometric to a keystore key that unwraps the DB key. |
+| Bookmarks | Stored in DB | Add edit, folders, delete-all, import/export (encrypted). |
+| Tabs screen previews | Uses `og:image`, not a real snapshot | Capture a real snapshot on tab switch (cheap, low-res, memory only). |
+| Search suggestions | Calls Google's suggest endpoint on every keystroke (150 ms) | This **leaks every keystroke to Google even if the user chose DuckDuckGo.** Use the selected engine's own suggest endpoint, make it **off by default** (privacy), and show a clear toggle. |
+| Voice / camera search shortcuts | Navigate to engine pages and auto-click mic | Fragile selectors; keep only if they work, otherwise remove. Needs the permission flow in 3.2. |
+| `docs/CHANGELOG.md`, `docs/extension-audit.md` | Claim exact/complete behaviour that does not exist | Rewrite after each phase with the real status. |
+| `tests/*.test.mjs` | Test copies of logic, not the app (SEC-8) | Replace (section 8). |
+
+---
+
+## 8. Tests and quality
+
+1. **Delete or rewrite** `tests/unit.test.mjs` and `tests/feature-register.test.mjs` so every test imports the real module (`src/...`). Put pure logic in files with no React/Expo imports so Node can test it: URL normalising, privacy URL cleaning, HLS/DASH parsers, detection `rules.ts`, `SpeedMeter`, segment pool, history/navigation reducer, policy resolution.
+2. Add **fixtures**: real-world M3U8 (master with audio groups, AES-128, fMP4 with `EXT-X-MAP`, byte ranges), MPD (SegmentTemplate, SegmentList, multi-period), header sets for the media rules.
+3. Add a **navigation reducer test**: random sequences of load/redirect/back/forward events never produce a state where Back and Forward disagree with the simulated native stack.
+4. Add a **manual test matrix** file `docs/TEST_MATRIX.md` with the pages and cases listed in 3.5, 5.6, 6.7 and a place to record pass/fail per device (at least one Android phone; iOS if available).
+5. Fix the `package.json` `test` script so it runs the real tests and fails when they fail.
+6. Add `scripts/check-ui-settings.mjs`: fails the build if a setting in `browserStore` is not read anywhere outside the settings screens (catches future UI-only toggles).
+
+---
+
+## 9. Suggested order of work (one PR each)
+
+1. **PR 1** — Step 0 reproduction + logging; NAV model rewrite (3.1); open-source-page fix.
+2. **PR 2** — WebView handlers (3.2): errors, crash recovery, new-window, Stop button, `onShouldStartLoadWithRequest` fixes, permission fix (remove auto-grant).
+3. **PR 3** — Injected scripts (3.3) + selectors/perf (3.4).
+4. **PR 4** — Encrypted DB, settings persistence, real wipe, lock behaviour (section 4).
+5. **PR 5** — Detection rule engine + tests (5.1, 5.5) and JS layer A in all frames.
+6. **PR 6** — Native request observer for Android (layer B) + cookie/header replay.
+7. **PR 7** — Download engine: queue, pool, fetcher, writer, speed meter, notification (6.1–6.2, 6.5).
+8. **PR 8** — HLS audio/AES-128, DASH, muxer module (6.3–6.4).
+9. **PR 9** — Site extractors (5.4), one site per commit.
+10. **PR 10** — Feature audit decisions (section 7) and new features (section 10).
+11. **PR 11** — Docs and tests cleanup (section 8).
+
+---
+
+## 10. New features that would make the app better
+
+Ordered by value for a privacy-first browser. Implement only those the owner approves, and each must be fully working.
+
+**Core browsing**
+1. Find in page, Reader view, "Request desktop site" toggle per tab (wire the existing `desktopMode`).
+2. Real offline error page, "Open in new tab", long-press link menu (open in new tab, copy link, download link).
+3. Per-site shield panel (blocked count, JS on/off, images on/off, permissions, UA) using the already-built per-site settings.
+4. Tab groups and "close all tabs" with undo; recently closed tabs are **not** stored (privacy).
+5. Set as default browser (Android intent filters for `http/https`), and "Open with Private Browser" share target.
+
+**Privacy**
+6. HTTPS-first with fallback interstitial (3.2).
+7. Cookie banner auto-dismiss (real rules, not only CSS hiding) and tracking-parameter stripping on link clicks (today it only runs on typed URLs).
+8. Link-click referrer trimming (`Referrer-Policy: strict-origin` equivalent).
+9. Privacy report per site and per session (local only).
+10. Auto-wipe: clear cookies/cache when a tab closes, on app exit, or on a timer.
+11. DNS-over-HTTPS *(only if the platform proxy/DNS layer allows it)*.
+
+**Downloads and video**
+12. Quality + audio language + subtitle picker before download; batch download of several items.
+13. Download notification with speed, Pause/Cancel; resume after restart; Wi-Fi-only (working).
+14. Built-in local player (already have `VideoPlayerModal`) with playback speed, resume position, and "play without saving".
+15. Paste-a-link download: user pastes a media URL, the app probes it with the same rules.
+16. Storage manager: show space used, delete by age/size, "delete file + record".
+17. Export downloaded file to Downloads (SAF on Android) with progress, without loading the whole file into memory.
+
+**Security**
+18. Encrypted backup/export of settings and bookmarks (password protected, local file).
+19. Secure keyboard flags, screenshot blocking toggle, auto-lock after screen off (wire existing).
+20. Local crash log viewer (opt-in, never uploaded) — already selected by the owner.
+
+---
+
+## 11. Definition of done (whole project)
+
+- No setting appears in the UI unless it works; the check in section 8.6 passes.
+- Browsing test list (3.5) passes on a real Android device.
+- Detection test list (5.6) passes; `rules.ts` tests pass.
+- Download acceptance (6.7) passes with recorded numbers.
+- DB cannot be opened without the key; wipe verified by test.
+- `docs/` describes only what is true. `npx tsc --noEmit`, `npx expo lint`, `npm test` all pass.
+
+---
+
+## Appendix A — Extension function map (beautified `service.pretty.js`)
+
+| Name | Meaning |
+|---|---|
+| `If` | registers `onSendHeaders` / `onResponseStarted` listeners |
+| `NS` | main response handler (rules in 5.1) |
+| `Ef` | HLS handler: fetch playlist with saved headers → master or media playlist → `on_media` |
+| `Lm` / `Vm` / `Af` | HLS master parser, subtitle extraction, duration + DRM/AES check |
+| `IS` | DASH handler |
+| `Df` / `kf` | MPD parser, MPD subtitle extraction |
+| `OS` | direct media handler (size filters, byte ranges, filename) |
+| `Pf` | `Content-Type` → media type using table `jm` |
+| `$S` | filename + extension from `Content-Disposition`, URL, content type; allowed set `bv` |
+| `PS` | domains skipped because they have their own extractor |
+| `sp`, `ap`, `lp`, `up` | per-host settings: `CONVERT_MPD_URL_TO_M3U8`, `FILTER_HTTP_M3U8_MEDIA`, `ALLOW_SMALL_FILE_DETECTION`, `DISABLE_PREVIEW_LOADING` |
+| `Of` | reads page title + thumbnail through `scripting.executeScript` |
+| `_p` | builds download arguments (strategy, headers, muxer, `will_use_jsfetch`) per media type |
+| `ru` | runs a download/preview job |
+
+Download worker (`download_worker/main.js`): segment semaphore `fn = 4` (1 when throttled), `MAX_FETCH_ATTEMPTS = 6`, `MAX_READ_ATTEMPTS = 6`, AES-128 decrypt with WebCrypto, libav (wasm ffmpeg) with `-c copy` for muxing HLS/DASH video + audio + subtitles into MP4, strategies such as `http_audio_video_one_source`, `http_audio_video_two_sources_jsfetch`, `m3u8_audio_video_two_sources`, `mpd_audio_video_one_source`.
+
+## Appendix B — Small code sketches (illustrative; verify APIs for the installed versions)
+
+**Segment pool (no batch barrier):**
+```ts
+async function runPool<T>(items: T[], limit: number, task: (item: T, i: number) => Promise<void>, signal: AbortSignal) {
+  let next = 0;
+  const worker = async () => {
+    while (!signal.aborted) {
+      const i = next++;
+      if (i >= items.length) return;
+      await task(items[i], i);          // retries and backoff live inside task
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}
+```
+
+**Speed meter (sliding window + EMA):**
+```ts
+class SpeedMeter {
+  private samples: { t: number; bytes: number }[] = [];
+  private ema = 0;
+  add(totalBytes: number, now = Date.now()) {
+    this.samples.push({ t: now, bytes: totalBytes });
+    while (this.samples.length > 2 && now - this.samples[0].t > 5000) this.samples.shift();
+    const a = this.samples[0], b = this.samples[this.samples.length - 1];
+    const dt = (b.t - a.t) / 1000;
+    if (dt > 0.2) {
+      const inst = (b.bytes - a.bytes) / dt;
+      this.ema = this.ema ? this.ema * 0.6 + inst * 0.4 : inst;
+    }
+    return this.ema;                    // bytes per second
+  }
+}
+```
+
+**One-time navigation request (the store never feeds URLs back to the WebView):**
+```ts
+navigate: (tabId, url) => set(s => ({
+  tabs: s.tabs.map(t => t.id === tabId
+    ? { ...t, isBlank: false, homeForward: false, loadRequest: { url, nonce: (t.loadRequest?.nonce ?? 0) + 1 } }
+    : t),
+})),
+```
