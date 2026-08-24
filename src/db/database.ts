@@ -574,3 +574,67 @@ class AppDatabase {
 
   public async setActiveVpnProfile(id: string | null): Promise<void> {
     await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('UPDATE vpn_profiles SET active = 0;');
+    if (id) {
+      await this.db.runAsync(
+        'UPDATE vpn_profiles SET active = 1, last_used = ? WHERE id = ?;',
+        [Date.now(), id]
+      );
+    }
+  }
+
+  public async deleteVpnProfile(id: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM vpn_profiles WHERE id = ?;', [id]);
+  }
+
+  // --- Site Settings (SAF-3, SEC-1) ---
+  public async getSiteSettings(host: string): Promise<SiteSettingsRecord | null> {
+    await this.init();
+    if (!this.db) return null;
+    return await this.db.getFirstAsync<SiteSettingsRecord>(
+      'SELECT * FROM site_settings WHERE host = ?;',
+      [host.toLowerCase()]
+    );
+  }
+
+  public async getAllSiteSettings(): Promise<SiteSettingsRecord[]> {
+    await this.init();
+    if (!this.db) return [];
+    return await this.db.getAllAsync<SiteSettingsRecord>(
+      'SELECT * FROM site_settings ORDER BY host ASC;'
+    );
+  }
+
+  public async saveSiteSettings(settings: SiteSettingsRecord): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO site_settings (
+        host, js, ua_mode, ua_value, images, third_party_scripts, fp_protection, blocker, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [
+        settings.host.toLowerCase(),
+        settings.js,
+        settings.ua_mode ?? null,
+        settings.ua_value ?? null,
+        settings.images,
+        settings.third_party_scripts,
+        settings.fp_protection,
+        settings.blocker,
+        settings.updated_at,
+      ]
+    );
+  }
+
+  public async deleteSiteSettings(host: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM site_settings WHERE host = ?;', [host.toLowerCase()]);
+  }
+
+  // --- Site Permissions (PRM-1, PRM-2) ---
+  public async getSitePermissions(host?: string): Promise<SitePermissionRecord[]> {
+    await this.init();
