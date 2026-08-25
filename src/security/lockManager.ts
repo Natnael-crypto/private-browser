@@ -253,3 +253,38 @@ export class LockManager {
   }
 
   public static async setAutoLockTimeout(timeoutSec: string): Promise<void> {
+    await SecureStore.setItemAsync(STORAGE_KEYS.AUTO_LOCK_TIMEOUT, timeoutSec);
+  }
+
+  public static recordActive(): void {
+    this.lastActiveTime = Date.now();
+  }
+
+  /**
+   * Check if app should lock upon returning from background
+   */
+  public static async shouldLockOnResume(): Promise<boolean> {
+    const isSet = await this.isPasswordSet();
+    if (!isSet) return false;
+
+    const timeoutStr = await this.getAutoLockTimeout();
+    if (timeoutStr === '-1') return false; // Never auto-lock while app process runs
+
+    const timeoutMs = parseInt(timeoutStr, 10) * 1000;
+    const elapsed = Date.now() - this.lastActiveTime;
+    return elapsed >= timeoutMs;
+  }
+
+  /**
+   * Full data wipe on "Forgot Password" or "Clear all data now" (SEC-2, SEC-4, PRV-4)
+   */
+  public static async fullDataWipe(): Promise<void> {
+    try {
+      this.failedAttempts = 0;
+      this.lockedUntil = 0;
+      await WipeService.wipeAll();
+    } catch (e) {
+      console.error('Data wipe failed', e);
+    }
+  }
+}
