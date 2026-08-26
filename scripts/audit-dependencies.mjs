@@ -22,3 +22,27 @@ const DENY_LIST = [
   '@segment/analytics-react-native',
   'sentry',
   '@sentry/react-native',
+  'bugsnag',
+  'facebook-fbsdk',
+  'react-native-fbsdk-next',
+  'applovin',
+  'unity-ads',
+  'ironsource',
+];
+
+export function auditDependencies(packageJsonPath) {
+  const pkgContent = fs.readFileSync(packageJsonPath, 'utf8');
+  const pkg = JSON.parse(pkgContent);
+
+  const deps = Object.keys(pkg.dependencies || {});
+  const devDeps = Object.keys(pkg.devDependencies || {});
+  const allDeps = [...deps, ...devDeps];
+
+  const foundViolations = [];
+
+  for (const dep of allDeps) {
+    const lower = dep.toLowerCase();
+    for (const denied of DENY_LIST) {
+      if (lower === denied || lower.includes(denied)) {
+        foundViolations.push({ dependency: dep, matchedRule: denied });
+      }
