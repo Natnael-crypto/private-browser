@@ -46,3 +46,26 @@ export function auditDependencies(packageJsonPath) {
       if (lower === denied || lower.includes(denied)) {
         foundViolations.push({ dependency: dep, matchedRule: denied });
       }
+    }
+  }
+
+  return {
+    passed: foundViolations.length === 0,
+    violations: foundViolations,
+    totalAudited: allDeps.length,
+  };
+}
+
+if (process.argv[1] && process.argv[1].endsWith('audit-dependencies.mjs')) {
+  const packagePath = path.resolve(process.cwd(), 'package.json');
+  console.log(`Running PRV-5 privacy audit on ${packagePath}...`);
+  const result = auditDependencies(packagePath);
+
+  if (result.passed) {
+    console.log(`✅ PRV-5 Audit Passed: 0 tracking or ad SDKs found across ${result.totalAudited} dependencies.`);
+    process.exit(0);
+  } else {
+    console.error(`❌ PRV-5 Audit Failed: Found prohibited tracking/ad SDKs:`, result.violations);
+    process.exit(1);
+  }
+}
