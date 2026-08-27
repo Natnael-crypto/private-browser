@@ -346,3 +346,88 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 14,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontFamily: F.s,
+    textAlign: 'center',
+  },
+  sheetMessage: {
+    fontSize: 13,
+    fontFamily: F.r,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  optionsCard: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  optionRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  optionText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  cancelButton: {
+    height: 52,
+    borderRadius: 14,
+    marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 17,
+    fontFamily: F.s,
+  },
+  dialogCard: {
+    width: 290,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 24,
+  },
+  dialogContent: {
+    paddingTop: 20,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    alignItems: 'center',
+  },
+  dialogTitle: {
+    fontSize: 17,
+    fontFamily: F.s,
+    textAlign: 'center',
+  },
+  dialogMessage: {
+    fontSize: 13,
+    fontFamily: F.r,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  dialogButtonsRow: {
+    flexDirection: 'row',
+    height: 48,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  dialogBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogBtnText: {
+    fontSize: 16,
+  },
+  dialogDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: '100%',
+  },
+});
