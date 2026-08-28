@@ -638,3 +638,66 @@ class AppDatabase {
   // --- Site Permissions (PRM-1, PRM-2) ---
   public async getSitePermissions(host?: string): Promise<SitePermissionRecord[]> {
     await this.init();
+    if (!this.db) return [];
+    if (host) {
+      return await this.db.getAllAsync<SitePermissionRecord>(
+        'SELECT * FROM site_permissions WHERE host = ? ORDER BY permission ASC;',
+        [host.toLowerCase()]
+      );
+    }
+    return await this.db.getAllAsync<SitePermissionRecord>(
+      'SELECT * FROM site_permissions ORDER BY host ASC, permission ASC;'
+    );
+  }
+
+  public async setSitePermission(
+    host: string,
+    permission: string,
+    decision: 'allow' | 'deny'
+  ): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO site_permissions (host, permission, decision, created_at)
+       VALUES (?, ?, ?, ?);`,
+      [host.toLowerCase(), permission, decision, Date.now()]
+    );
+  }
+
+  public async revokeSitePermission(host: string, permission: string): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync(
+      'DELETE FROM site_permissions WHERE host = ? AND permission = ?;',
+      [host.toLowerCase(), permission]
+    );
+  }
+
+  public async revokeAllSitePermissions(): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM site_permissions;');
+  }
+
+  /**
+   * PRV-4 & LCK-5: Clear everything now / Panic Wipe
+   * Wipes settings, allowlist, bookmarks, videos, downloads, proxies, vpns, site settings & permissions.
+   */
+  public async clearEverythingNow(): Promise<void> {
+    await this.init();
+    if (!this.db) return;
+    await this.db.runAsync('DELETE FROM allowlist;');
+    await this.db.runAsync('DELETE FROM bookmarks;');
+    await this.db.runAsync('DELETE FROM downloads;');
+    await this.db.runAsync('DELETE FROM videos;');
+    await this.db.runAsync('DELETE FROM custom_lists;');
+    await this.db.runAsync('DELETE FROM proxy_profiles;');
+    await this.db.runAsync('DELETE FROM vpn_profiles;');
+    await this.db.runAsync('DELETE FROM site_settings;');
+    await this.db.runAsync('DELETE FROM site_permissions;');
+    await this.db.runAsync('DELETE FROM settings;');
+    await this.db.execAsync('VACUUM;');
+  }
+}
+
+export const db = new AppDatabase();
