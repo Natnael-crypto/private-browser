@@ -324,3 +324,68 @@ export const useBrowserStore = create<BrowserState>((set, get) => {
           activeTabId: nextActive,
         });
       }
+    },
+
+    setActiveTab: (tabId) => {
+      set({ activeTabId: tabId });
+    },
+
+    updateTab: (tabId, partial) => {
+      set((state) => ({
+        tabs: state.tabs.map((t) => {
+          if (t.id !== tabId) return t;
+          const merged = { ...t, ...partial };
+          if (partial.currentUrl && !partial.url) {
+            merged.url = partial.currentUrl;
+          } else if (partial.url && !partial.currentUrl) {
+            merged.currentUrl = partial.url;
+          }
+          return merged;
+        }),
+      }));
+    },
+
+    incrementBlockedCount: (tabId) => {
+      set((state) => ({
+        tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, blockedCount: t.blockedCount + 1 } : t)),
+      }));
+    },
+
+    resetBlockedCount: (tabId) => {
+      set((state) => ({
+        tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, blockedCount: 0 } : t)),
+      }));
+    },
+
+    navigateTab: (tabId, input) => {
+      const state = get();
+      const raw = input.trim();
+      if (!raw) return;
+
+      let targetUrl = '';
+      const hasSpace = /\s/.test(raw);
+      const isLikelyDomain = !hasSpace && (raw.includes('.') || raw.startsWith('localhost'));
+
+      if (raw.startsWith('http://') || raw.startsWith('https://')) {
+        targetUrl = raw;
+      } else if (isLikelyDomain) {
+        targetUrl = `https://${raw}`;
+      } else {
+        // Search engine query (WEB-1, WEB-4)
+        targetUrl = `${SEARCH_URLS[state.searchEngine]}${encodeURIComponent(raw)}`;
+      }
+
+      // Apply Privacy Layer (PRV-7, PRV-8)
+      targetUrl = PrivacyManager.upgradeToHttps(targetUrl, state.httpsOnly);
+      targetUrl = PrivacyManager.sanitizeUrl(targetUrl, true);
+
+      set((s) => ({
+        tabs: s.tabs.map((t) => {
+          if (t.id !== tabId) return t;
+          const nextNonce = (t.loadRequest?.nonce ?? 0) + 1;
+          return {
+            ...t,
+            loadRequest: { url: targetUrl, nonce: nextNonce },
+            currentUrl: targetUrl,
+            url: targetUrl,
+            title: targetUrl,
