@@ -389,3 +389,68 @@ export const useBrowserStore = create<BrowserState>((set, get) => {
             currentUrl: targetUrl,
             url: targetUrl,
             title: targetUrl,
+            isLoading: true,
+            progress: 0.1,
+            isBlank: false,
+            homeForward: false,
+            loadError: null,
+          };
+        }),
+      }));
+    },
+
+    reloadTab: (tabId) => {
+      set((s) => ({
+        tabs: s.tabs.map((t) => {
+          if (t.id !== tabId) return t;
+          const targetUrl = t.currentUrl || t.loadRequest?.url || DEFAULT_BLANK_URL;
+          if (targetUrl === DEFAULT_BLANK_URL) return t;
+          const nextNonce = (t.loadRequest?.nonce ?? 0) + 1;
+          return {
+            ...t,
+            loadRequest: { url: targetUrl, nonce: nextNonce },
+            isLoading: true,
+            progress: 0.1,
+            loadError: null,
+          };
+        }),
+      }));
+    },
+
+    stopTab: (tabId) => {
+      set((s) => ({
+        tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, isLoading: false } : t)),
+      }));
+    },
+
+    toggleDesktopMode: (tabId) => {
+      set((state) => ({
+        tabs: state.tabs.map((t) => (t.id === tabId ? { ...t, desktopMode: !t.desktopMode } : t)),
+      }));
+    },
+
+    setBlockAds: (v) => updateSetting('blockAds', v),
+    setBlockCookies: (v) => updateSetting('blockCookies', v),
+    setHttpsOnly: (v) => updateSetting('httpsOnly', v),
+    setSendGpc: (v) => updateSetting('sendGpc', v),
+    setWifiOnly: (v) => updateSetting('wifiOnly', v),
+    setRemoveDetailsAfterDl: (v) => updateSetting('removeDetailsAfterDl', v),
+    setSaveDestination: (v) => updateSetting('saveDestination', v),
+    setAutoLockLabel: (v) => updateSetting('autoLockLabel', v),
+    setFingerprintEnabled: (v) => updateSetting('fingerprintEnabled', v),
+    setSearchEngine: (se) => updateSetting('searchEngine', se),
+    setSearchSuggestions: (v) => updateSetting('searchSuggestions', v),
+    setThemeMode: (mode) => updateSetting('themeMode', mode),
+
+    // Security Setters
+    setActiveProxyId: (id) => updateSetting('activeProxyId', id),
+    setFailClosed: (v) => updateSetting('failClosed', v),
+    setActiveVpnId: (id) => updateSetting('activeVpnId', id),
+    setVpnKillSwitch: (v) => updateSetting('vpnKillSwitch', v),
+    setUaPreset: (preset) => updateSetting('uaPreset', preset),
+    setCustomUa: (v) => updateSetting('customUa', v),
+    setSpoofLanguage: (v) => updateSetting('spoofLanguage', v),
+    setSpoofTimezone: (v) => updateSetting('spoofTimezone', v),
+    setRoundScreen: (v) => updateSetting('roundScreen', v),
+    setReduceFingerprinting: (v) => updateSetting('reduceFingerprinting', v),
+    setGlobalJs: (v) => updateSetting('globalJs', v),
