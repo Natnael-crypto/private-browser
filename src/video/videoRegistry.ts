@@ -166,3 +166,87 @@ export class VideoRegistry {
       thumbnail: raw.thumbnail || null,
       duration: raw.duration,
       detectedAt: Date.now(),
+      cookies: raw.cookies,
+      userAgent: raw.userAgent,
+      headers: raw.headers,
+    };
+
+    tabMap.set(mediaHash, item);
+    this.notify();
+
+    // Async probe metadata in background without blocking UI
+    this.probeMetadata(item, tabId);
+  }
+
+  public static formatBytes(bytes: number): string {
+    if (!bytes || bytes <= 0) return '';
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    } else if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(0)} KB`;
+    } else if (bytes < 1024 * 1024 * 1024) {
+      const mb = bytes / (1024 * 1024);
+      return mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`;
+    } else {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+  }
+
+  private static async probeMetadata(item: DetectedVideoItem, tabId: string): Promise<void> {
+    if (item.protectedStream) return;
+
+    const probeHeaders: Record<string, string> = {
+      'User-Agent':
+        item.userAgent ||
+        'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+      'Accept': '*/*',
+    };
+    if (item.sourcePageUrl) {
+      probeHeaders['Referer'] = item.sourcePageUrl;
+    }
+    if (item.cookies) {
+      probeHeaders['Cookie'] = item.cookies;
+    }
+
+    try {
+      if (item.format === 'HLS' || item.mediaUrl.includes('.m3u8')) {
+        const resp = await fetch(item.mediaUrl, {
+          method: 'GET',
+          headers: probeHeaders,
+        });
+        if (resp.ok) {
+          const text = await resp.text();
+          const parsed = M3U8Parser.parse(text, item.mediaUrl);
+          if (parsed.hasDrm) {
+            item.protectedStream = true;
+            item.hasDrm = true;
+            item.metaFormatted = 'Protected — DRM stream';
+          } else {
+            // Check for AES-128
+            if (text.includes('#EXT-X-KEY:METHOD=AES-128')) {
+              item.needsDecrypt = true;
+            }
+
+            if (parsed.variants.length > 0) {
+              const qualitiesSet = new Set<string>();
+              parsed.variants.forEach((v) => {
+                const res = v.qualityLabel || (v.height ? `${v.height}p` : '');
+                if (res) qualitiesSet.add(res);
+              });
+              item.qualities = Array.from(qualitiesSet);
+              if (item.qualities.length > 0) {
+                item.resolution = item.qualities[0];
+              }
+
+              // Extract audio groups / languages if present
+              const audioMatches = text.match(/#EXT-X-MEDIA:TYPE=AUDIO[^\\n]+/g);
+              if (audioMatches) {
+                const audios: string[] = [];
+                for (const a of audioMatches) {
+                  const lang = a.match(/LANGUAGE="([^"]+)"/)?.[1] || a.match(/NAME="([^"]+)"/)?.[1];
+                  if (lang && !audios.includes(lang)) audios.push(lang);
+                }
+                item.audioTracks = audios;
+              }
+
+              item.metaFormatted = `HLS · ${item.qualities.length} qualities · ${item.resolution}`;
