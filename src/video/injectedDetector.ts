@@ -156,3 +156,160 @@ export const INJECTED_VIDEO_DETECTOR_SCRIPT = `
           var firstSource = v.querySelector('source');
           if (firstSource) src = firstSource.src || firstSource.getAttribute('src');
         }
+
+        var vThumb = v.poster || v.getAttribute('poster') || getBestThumbnail();
+        if (vThumb) vThumb = toAbsoluteUrl(vThumb);
+
+        if (src) {
+          if (src.indexOf('blob:') === 0 && lastManifestUrl) {
+            // Associated MSE blob with last detected manifest
+            postVideo({
+              mediaUrl: lastManifestUrl,
+              title: v.getAttribute('title') || v.getAttribute('aria-label') || getBestPageTitle(),
+              thumbnail: vThumb,
+              hasDrm: !!(v.mediaKeys),
+            });
+          } else if (src.indexOf('blob:') !== 0 && !SEGMENT_REGEX.test(src)) {
+            postVideo({
+              mediaUrl: src,
+              title: v.getAttribute('title') || v.getAttribute('aria-label') || getBestPageTitle(),
+              thumbnail: vThumb,
+              resolution: v.videoWidth && v.videoHeight ? (v.videoHeight + 'p') : undefined,
+              duration: v.duration,
+              hasDrm: !!(v.mediaKeys),
+            });
+          }
+        }
+
+        var sources = v.querySelectorAll('source');
+        sources.forEach(function(s) {
+          var sSrc = s.src || s.getAttribute('src');
+          if (sSrc && sSrc.indexOf('blob:') !== 0 && !SEGMENT_REGEX.test(sSrc)) {
+            postVideo({
+              mediaUrl: sSrc,
+              title: v.getAttribute('title') || getBestPageTitle(),
+              thumbnail: vThumb,
+              resolution: s.getAttribute('size') ? (s.getAttribute('size') + 'p') : undefined,
+            });
+          }
+        });
+
+        if (!v.__pb_listened) {
+          v.__pb_listened = true;
+          var handler = function() {
+            var s = v.currentSrc || v.src;
+            if (s && s.indexOf('blob:') !== 0 && !SEGMENT_REGEX.test(s)) {
+              postVideo({
+                mediaUrl: s,
+                thumbnail: v.poster || v.getAttribute('poster') || getBestThumbnail(),
+                resolution: v.videoHeight ? (v.videoHeight + 'p') : undefined,
+                hasDrm: !!(v.mediaKeys),
+              });
+            }
+          };
+          ['play', 'playing', 'loadedmetadata', 'loadeddata', 'canplay'].forEach(function(ev) {
+            v.addEventListener(ev, handler, { passive: true });
+          });
+        }
+      });
+
+      var standaloneSources = document.querySelectorAll('source[src]');
+      standaloneSources.forEach(function(s) {
+        var sSrc = s.src || s.getAttribute('src');
+        if (sSrc && isMediaUrl(sSrc)) {
+          postVideo({ mediaUrl: sSrc });
+        }
+      });
+
+      var iframes = document.querySelectorAll('iframe');
+      iframes.forEach(function(ifr) {
+        try {
+          var src = ifr.src || ifr.getAttribute('src');
+          if (src && (src.indexOf('vimeo.com') !== -1 || src.indexOf('youtube.com/embed') !== -1 || src.indexOf('player.') !== -1)) {
+            postVideo({
+              mediaUrl: src,
+              title: ifr.title || getBestPageTitle(),
+              format: 'Embed',
+            });
+          }
+        } catch(e) {}
+      });
+    } catch(e) {}
+  }
+
+  // --- 2. Network Sniffing: Fetch & XMLHttpRequest Hooks (VID-2, VID-5) ---
+  try {
+    var origFetch = window.fetch;
+    if (origFetch) {
+      window.fetch = function(input, init) {
+        var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        var promise = origFetch.apply(this, arguments);
+        if (url && typeof url === 'string') {
+          promise.then(function(resp) {
+            try {
+              if (resp && resp.status >= 200 && resp.status <= 299) {
+                var ctype = resp.headers.get('content-type') || '';
+                var clen = resp.headers.get('content-length') || '';
+                var crange = resp.headers.get('content-range') || '';
+                var cdisp = resp.headers.get('content-disposition') || '';
+                var arange = resp.headers.get('accept-ranges') || '';
+
+                var isMediaHeader = /video|audio|mpegurl|dash/i.test(ctype);
+                if (isMediaUrl(url) || isMediaHeader) {
+                  var headersMap = {};
+                  if (ctype) headersMap['content-type'] = ctype;
+                  if (clen) headersMap['content-length'] = clen;
+                  if (crange) headersMap['content-range'] = crange;
+                  if (cdisp) headersMap['content-disposition'] = cdisp;
+                  if (arange) headersMap['accept-ranges'] = arange;
+
+                  var size = clen ? parseInt(clen, 10) : undefined;
+                  postVideo({ mediaUrl: url, headers: headersMap, sizeBytes: size });
+                }
+              }
+            } catch(e) {}
+          }).catch(function() {});
+        }
+        return promise;
+      };
+    }
+  } catch(e) {}
+
+  try {
+    var origXhrOpen = XMLHttpRequest.prototype.open;
+    var origXhrSend = XMLHttpRequest.prototype.send;
+    if (origXhrOpen && origXhrSend) {
+      XMLHttpRequest.prototype.open = function(method, url) {
+        try {
+          this.__pb_req_url = typeof url === 'string' ? url : '';
+        } catch(e) {}
+        return origXhrOpen.apply(this, arguments);
+      };
+
+      XMLHttpRequest.prototype.send = function() {
+        var xhr = this;
+        try {
+          xhr.addEventListener('load', function() {
+            try {
+              var url = xhr.__pb_req_url;
+              if (url && xhr.status >= 200 && xhr.status <= 299) {
+                var ctype = xhr.getResponseHeader('content-type') || '';
+                var clen = xhr.getResponseHeader('content-length') || '';
+                var crange = xhr.getResponseHeader('content-range') || '';
+                var cdisp = xhr.getResponseHeader('content-disposition') || '';
+                var arange = xhr.getResponseHeader('accept-ranges') || '';
+
+                if (isMediaUrl(url) || /video|audio|mpegurl|dash/i.test(ctype)) {
+                  var headersMap = {};
+                  if (ctype) headersMap['content-type'] = ctype;
+                  if (clen) headersMap['content-length'] = clen;
+                  if (crange) headersMap['content-range'] = crange;
+                  if (cdisp) headersMap['content-disposition'] = cdisp;
+                  if (arange) headersMap['accept-ranges'] = arange;
+
+                  var size = clen ? parseInt(clen, 10) : undefined;
+                  postVideo({ mediaUrl: url, headers: headersMap, sizeBytes: size });
+                }
+              }
+            } catch(e) {}
+          }, { passive: true });
