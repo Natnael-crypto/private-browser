@@ -13,3 +13,17 @@ export interface CandidateRequest {
   headers?: Record<string, string>;
   initiatorUrl?: string;
   pageUrl?: string;
+}
+
+export interface PageDetectionState {
+  hasManifestStream?: boolean; // True if page has already emitted an HLS/DASH manifest
+  allowSmallFiles?: boolean;
+}
+
+export interface DetectionDecision {
+  matched: boolean;
+  reason?: string;
+  type?: DetectedMediaType;
+  hash?: string;
+  filename?: string;
+  extension?: string;
