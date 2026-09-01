@@ -27,3 +27,17 @@ export interface DetectionDecision {
   hash?: string;
   filename?: string;
   extension?: string;
+  sizeBytes?: number;
+  supportsByteRanges?: boolean;
+  specialExtractor?: 'vimeo_config' | 'iqiyi_config' | null;
+}
+
+// 5.1 Step 2: Segment extensions that must be ignored
+export const SEGMENT_REGEX = /\.(?:ts|m4s|m2ts)(?:[?#]|$)/i;
+
+// 5.1 Step 4: Registrable domains handled by dedicated site extractors
+export const SITE_EXTRACTOR_DOMAINS = new Set([
+  'youtube.com',
+  'instagram.com',
+  'ok.ru',
+  'vk.com',
