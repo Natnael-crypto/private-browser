@@ -70,3 +70,17 @@ export const JM_CONTENT_TYPES = [
   { regex: /(?:x-)?mkv/i, audio: 'mp3', video: 'mkv' },
   { regex: /(?:x-)?vorbis/i, audio: 'oga', video: 'ogv' },
 ];
+
+// 5.1 Step 9: bv allowed extension set
+export const ALLOWED_EXTENSIONS = new Set([
+  '3g2', '3gp', 'aac', 'ac3', 'aiff', 'amr', 'ape', 'asf', 'au', 'avi',
+  'divx', 'dts', 'dv', 'f4v', 'flac', 'flv', 'h264', 'm2t', 'm2ts', 'm2v',
+  'm4a', 'm4v', 'mka', 'mkv', 'mov', 'mp2', 'mp3', 'mp4', 'mpe', 'mpeg',
+  'mpg', 'mpv', 'mts', 'mxf', 'oga', 'ogg', 'ogm', 'ogv', 'opus', 'qt',
+  'ra', 'rm', 'rmvb', 'snd', 'ts', 'vob', 'voc', 'wav', 'webm', 'wma',
+  'wmv', 'wv', 'y4m',
+]);
+
+/**
+ * Fast DJB2 hash for string hashing and content deduping (matches extension be() function)
+ */
