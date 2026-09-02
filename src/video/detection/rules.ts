@@ -41,3 +41,17 @@ export const SITE_EXTRACTOR_DOMAINS = new Set([
   'instagram.com',
   'ok.ru',
   'vk.com',
+  'vk.ru',
+  'vkvideo.ru',
+  'canva.com',
+  'iq.com',
+  'vimeo.com',
+  'kick.com',
+  'javrank.com',
+]);
+
+// 5.1 Step 9: jm content-type mapping table
+export const JM_CONTENT_TYPES = [
+  { regex: /(?:x-)?(?:pn-)?wave?/i, audio: 'wav', video: 'wav' },
+  { regex: /(?:x-)?3gpp2?/i, audio: 'mp3', video: '3gpp' },
+  { regex: /(?:x-)?flac/i, audio: 'flac', video: 'flac' },
