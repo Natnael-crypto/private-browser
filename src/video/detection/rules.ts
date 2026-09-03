@@ -84,3 +84,17 @@ export const ALLOWED_EXTENSIONS = new Set([
 /**
  * Fast DJB2 hash for string hashing and content deduping (matches extension be() function)
  */
+export function hashString(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) & 0xffffffff;
+  }
+  return (hash >>> 0).toString(16);
+}
+
+/**
+ * Extract registrable domain (e.g. "player.vimeo.com" -> "vimeo.com")
+ */
+export function getRegistrableDomain(hostname: string): string {
+  const parts = hostname.toLowerCase().split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
