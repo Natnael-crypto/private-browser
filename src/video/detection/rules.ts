@@ -98,3 +98,17 @@ export function hashString(str: string): string {
 export function getRegistrableDomain(hostname: string): string {
   const parts = hostname.toLowerCase().split('.').filter(Boolean);
   if (parts.length <= 2) return parts.join('.');
+  return parts.slice(-2).join('.');
+}
+
+/**
+ * Maps Content-Type to file extension using the reference jm table
+ */
+export function mapContentTypeToExtension(contentType?: string): string | null {
+  if (!contentType) return null;
+  const mime = contentType.split(';')[0].trim().toLowerCase();
+  const [kind, sub] = mime.split('/');
+  if (!kind || !sub) return null;
+
+  const targetKind = kind === 'audio' ? 'audio' : 'video';
+  for (const entry of JM_CONTENT_TYPES) {
