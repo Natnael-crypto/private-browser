@@ -126,3 +126,18 @@ export function parseContentDispositionFilename(disposition?: string): string | 
   if (!disposition) return null;
   const match = disposition.match(
     /filename\*=(?:UTF-8'')?['"]?([^'";]*)['"]?|filename=['"]?([^'";]*)['"]?/i
+  );
+  if (match) {
+    if (match[1]) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
+    if (match[2]) return match[2];
+  }
+  return null;
+}
+
+/**
