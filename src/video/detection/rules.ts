@@ -112,3 +112,17 @@ export function mapContentTypeToExtension(contentType?: string): string | null {
 
   const targetKind = kind === 'audio' ? 'audio' : 'video';
   for (const entry of JM_CONTENT_TYPES) {
+    if (entry.regex.test(sub)) {
+      return entry[targetKind];
+    }
+  }
+  return null;
+}
+
+/**
+ * Parses Content-Disposition header for filename* or filename
+ */
+export function parseContentDispositionFilename(disposition?: string): string | null {
+  if (!disposition) return null;
+  const match = disposition.match(
+    /filename\*=(?:UTF-8'')?['"]?([^'";]*)['"]?|filename=['"]?([^'";]*)['"]?/i
