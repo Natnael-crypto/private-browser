@@ -169,3 +169,17 @@ export function resolveFilenameAndExtension(
         name: dispFilename.substring(0, dot),
         ext: dispFilename.substring(dot + 1).toLowerCase(),
       });
+    }
+  }
+
+  if (urlFilename) {
+    const dot = urlFilename.lastIndexOf('.');
+    if (dot > 0) {
+      candidates.push({
+        name: urlFilename.substring(0, dot),
+        ext: urlFilename.substring(dot + 1).toLowerCase(),
+      });
+    }
+  }
+
+  const mimeExt = mapContentTypeToExtension(contentType);
