@@ -141,3 +141,17 @@ export function parseContentDispositionFilename(disposition?: string): string | 
 }
 
 /**
+ * Resolves filename and lowercase extension using reference priority:
+ * Content-Disposition -> URL path -> Content-Type
+ */
+export function resolveFilenameAndExtension(
+  url: string,
+  contentType?: string,
+  disposition?: string
+): { filename?: string; extension: string } {
+  const dispFilename = parseContentDispositionFilename(disposition);
+  let urlFilename: string | undefined;
+
+  try {
+    const parsed = new URL(url);
+    const lastPart = parsed.pathname.split('/').filter(Boolean).pop();
