@@ -155,3 +155,17 @@ export function resolveFilenameAndExtension(
   try {
     const parsed = new URL(url);
     const lastPart = parsed.pathname.split('/').filter(Boolean).pop();
+    if (lastPart && lastPart.includes('.')) {
+      urlFilename = lastPart;
+    }
+  } catch {}
+
+  const candidates: { name?: string; ext: string }[] = [];
+
+  if (dispFilename) {
+    const dot = dispFilename.lastIndexOf('.');
+    if (dot > 0) {
+      candidates.push({
+        name: dispFilename.substring(0, dot),
+        ext: dispFilename.substring(dot + 1).toLowerCase(),
+      });
