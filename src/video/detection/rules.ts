@@ -183,3 +183,17 @@ export function resolveFilenameAndExtension(
   }
 
   const mimeExt = mapContentTypeToExtension(contentType);
+  if (mimeExt) {
+    candidates.push({ ext: mimeExt });
+  }
+
+  for (const cand of candidates) {
+    if (ALLOWED_EXTENSIONS.has(cand.ext)) {
+      return {
+        filename: cand.name,
+        extension: cand.ext,
+      };
+    }
+  }
+
+  return { extension: 'mp4' };
