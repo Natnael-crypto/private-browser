@@ -59,3 +59,34 @@ export class M3U8Parser {
         if (resolution) {
           const parts = resolution.split('x');
           if (parts.length === 2) {
+            height = parseInt(parts[1], 10);
+            qualityLabel = `${height}p`;
+          }
+        } else if (bandwidth) {
+          if (bandwidth > 4000000) qualityLabel = '1080p';
+          else if (bandwidth > 2000000) qualityLabel = '720p';
+          else if (bandwidth > 1000000) qualityLabel = '480p';
+          else qualityLabel = '360p';
+        }
+
+        variants.push({
+          uri,
+          bandwidth,
+          resolution,
+          height,
+          qualityLabel,
+          codecs: currentStreamInf.CODECS,
+          audioGroup: currentStreamInf.AUDIO,
+          hasDrm,
+        });
+
+        currentStreamInf = null;
+      }
+    }
+
+    // Sort variants by height/bandwidth descending
+    variants.sort((a, b) => {
+      if (a.height && b.height) return b.height - a.height;
+      if (a.bandwidth && b.bandwidth) return b.bandwidth - a.bandwidth;
+      return 0;
+    });
