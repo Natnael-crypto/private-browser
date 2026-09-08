@@ -197,3 +197,18 @@ export function resolveFilenameAndExtension(
   }
 
   return { extension: 'mp4' };
+}
+
+/**
+ * Core Evaluation Engine (Section 5.1 rules 1-9 in exact order)
+ */
+export function evaluateDetectionRules(
+  req: CandidateRequest,
+  state: PageDetectionState = {}
+): DetectionDecision {
+  // 1. Status Code must be 2xx (if provided)
+  if (req.statusCode !== undefined && (req.statusCode < 200 || req.statusCode > 299)) {
+    return { matched: false, reason: 'status_not_2xx' };
+  }
+
+  let parsedUrl: URL;
