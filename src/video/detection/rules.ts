@@ -212,3 +212,17 @@ export function evaluateDetectionRules(
   }
 
   let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(req.url);
+  } catch {
+    return { matched: false, reason: 'invalid_url' };
+  }
+
+  // 2. Ignore URL paths ending in .ts, .m4s, .m2ts (segments)
+  if (SEGMENT_REGEX.test(parsedUrl.pathname)) {
+    return { matched: false, reason: 'segment_ignored' };
+  }
+
+  // 3. Special cases: Vimeo config and iQIYI dash
+  if (parsedUrl.host === 'player.vimeo.com' && parsedUrl.pathname.endsWith('/config')) {
+    return {
