@@ -226,3 +226,17 @@ export function evaluateDetectionRules(
   // 3. Special cases: Vimeo config and iQIYI dash
   if (parsedUrl.host === 'player.vimeo.com' && parsedUrl.pathname.endsWith('/config')) {
     return {
+      matched: true,
+      type: 'embed',
+      specialExtractor: 'vimeo_config',
+      hash: `vimeo_config_${hashString(req.url)}`,
+    };
+  }
+  if (parsedUrl.host === 'intl-api.iq.com' && parsedUrl.pathname.endsWith('/dash')) {
+    return {
+      matched: true,
+      type: 'dash',
+      specialExtractor: 'iqiyi_config',
+      hash: `iqiyi_dash_${hashString(req.url)}`,
+    };
+  }
