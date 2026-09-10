@@ -254,3 +254,17 @@ export function evaluateDetectionRules(
 
   const headers = req.headers || {};
   // Normalize header names to lowercase
+  const normHeaders: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    normHeaders[k.toLowerCase()] = v;
+  }
+
+  const contentType = normHeaders['content-type'] || '';
+  const contentLength = normHeaders['content-length'];
+  const contentRange = normHeaders['content-range'];
+  const contentDisposition = normHeaders['content-disposition'];
+  const acceptRanges = normHeaders['accept-ranges'];
+
+  // 6. HLS Stream Detection (Ef): Content-Type matches mpegurl, or URL matches /hls|m3u8/, or /api/playlist/master/
+  const isHls =
+    /mpegurl/i.test(contentType) ||
