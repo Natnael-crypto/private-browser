@@ -240,3 +240,17 @@ export function evaluateDetectionRules(
       hash: `iqiyi_dash_${hashString(req.url)}`,
     };
   }
+
+  // 4. Ignore pages whose registrable domain has a dedicated site extractor
+  if (req.pageUrl) {
+    try {
+      const pageHost = new URL(req.pageUrl).hostname;
+      const regDomain = getRegistrableDomain(pageHost);
+      if (SITE_EXTRACTOR_DOMAINS.has(regDomain)) {
+        return { matched: false, reason: `handled_by_extractor_${regDomain}` };
+      }
+    } catch {}
+  }
+
+  const headers = req.headers || {};
+  // Normalize header names to lowercase
