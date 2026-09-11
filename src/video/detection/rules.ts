@@ -283,3 +283,16 @@ export function evaluateDetectionRules(
 
   // 7 & 8. DASH Stream Detection (IS): Content-Type matches dash or URL matches .mpd
   const isDash = /dash/i.test(contentType) || /\.mpd(?:[?#]|$)/i.test(req.url);
+  if (isDash) {
+    return {
+      matched: true,
+      type: 'dash',
+      hash: `mpd_hash_${hashString(req.url)}`,
+      extension: 'mpd',
+      supportsByteRanges: false,
+    };
+  }
+
+  // 9. Direct Media (OS): response type is media OR Content-Type maps via jm table
+  const mappedMimeExt = mapContentTypeToExtension(contentType);
+  const isDirectCandidate = req.type === 'media' || mappedMimeExt !== null;
