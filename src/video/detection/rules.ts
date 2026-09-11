@@ -268,3 +268,18 @@ export function evaluateDetectionRules(
   // 6. HLS Stream Detection (Ef): Content-Type matches mpegurl, or URL matches /hls|m3u8/, or /api/playlist/master/
   const isHls =
     /mpegurl/i.test(contentType) ||
+    /hls|m3u8/i.test(req.url) ||
+    /\/api\/playlist\/master\//i.test(req.url);
+
+  if (isHls) {
+    return {
+      matched: true,
+      type: 'hls_master',
+      hash: `m3u8_hash_${hashString(req.url)}`,
+      extension: 'm3u8',
+      supportsByteRanges: false,
+    };
+  }
+
+  // 7 & 8. DASH Stream Detection (IS): Content-Type matches dash or URL matches .mpd
+  const isDash = /dash/i.test(contentType) || /\.mpd(?:[?#]|$)/i.test(req.url);
