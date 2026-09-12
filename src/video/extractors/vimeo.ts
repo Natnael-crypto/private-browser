@@ -54,3 +54,58 @@ export class VimeoExtractor {
   }): ExtractedMediaItem[] {
     const items: ExtractedMediaItem[] = [];
     if (!config || !config.request || !config.request.files) return items;
+
+    const files = config.request.files;
+    const title = config.video?.title || 'Vimeo Video';
+    const duration = config.video?.duration || 0;
+
+    let thumbnail: string | null = null;
+    if (config.video?.thumbs) {
+      const thumbs = config.video.thumbs;
+      thumbnail = thumbs['1280'] || thumbs['960'] || thumbs['640'] || thumbs['base'] || null;
+    }
+
+    // 1. Progressive MP4 streams
+    if (Array.isArray(files.progressive)) {
+      for (const prog of files.progressive) {
+        if (prog && prog.url) {
+          const res = prog.quality ? `${prog.quality}` : (prog.height ? `${prog.height}p` : 'Auto');
+          items.push({
+            mediaUrl: prog.url,
+            title,
+            format: 'MP4',
+            resolution: res,
+            thumbnail,
+            duration,
+          });
+        }
+      }
+    }
+
+    // 2. HLS streams
+    if (files.hls?.cdns) {
+      for (const [cdnName, cdn] of Object.entries(files.hls.cdns)) {
+        if (cdn && cdn.url) {
+          items.push({
+            mediaUrl: cdn.url,
+            title: `${title} (HLS ${cdnName})`,
+            format: 'HLS',
+            resolution: 'Auto',
+            thumbnail,
+            duration,
+          });
+        }
+      }
+    }
+
+    return items;
+  }
+
+  /**
+   * Extract video ID from Vimeo URL: vimeo.com/12345678 or player.vimeo.com/video/12345678
+   */
+  public static extractVideoId(url: string): string | null {
+    const match = url.match(/(?:vimeo\.com\/(?:video\/)?|player\.vimeo\.com\/video\/)(\d{5,})/i);
+    return match ? match[1] : null;
+  }
+}
