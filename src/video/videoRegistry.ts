@@ -250,3 +250,86 @@ export class VideoRegistry {
               }
 
               item.metaFormatted = `HLS · ${item.qualities.length} qualities · ${item.resolution}`;
+            }
+          }
+        }
+      } else if (item.format === 'DASH' || item.mediaUrl.includes('.mpd')) {
+        const resp = await fetch(item.mediaUrl, { headers: probeHeaders });
+        if (resp.ok) {
+          const text = await resp.text();
+          const parsed = MPDParser.parse(text, item.mediaUrl);
+          if (parsed.hasDrm) {
+            item.protectedStream = true;
+            item.hasDrm = true;
+            item.metaFormatted = 'Protected — DRM stream';
+          } else if (parsed.variants.length > 0) {
+            item.qualities = parsed.variants
+              .map((v) => v.qualityLabel || (v.height ? `${v.height}p` : ''))
+              .filter(Boolean);
+            if (item.qualities.length > 0) {
+              item.resolution = item.qualities[0];
+            }
+            item.metaFormatted = `DASH · ${parsed.variants.length} qualities · ${item.resolution}`;
+          }
+        }
+      } else {
+        // Direct media probe with Range: bytes=0-1
+        let bytes: number | null = null;
+        try {
+          const rangeResp = await fetch(item.mediaUrl, {
+            method: 'GET',
+            headers: {
+              ...probeHeaders,
+              'Range': 'bytes=0-1',
+            },
+          });
+          const contentRange = rangeResp.headers.get('content-range');
+          if (contentRange) {
+            const match = contentRange.match(/\/(\d+)$/);
+            if (match) bytes = parseInt(match[1], 10);
+            item.supportsByteRanges = true;
+          }
+          if (!bytes) {
+            const cl = rangeResp.headers.get('content-length');
+            if (cl && parseInt(cl, 10) > 2) bytes = parseInt(cl, 10);
+          }
+        } catch {}
+
+        if (!bytes) {
+          try {
+            const headResp = await fetch(item.mediaUrl, {
+              method: 'HEAD',
+              headers: probeHeaders,
+            });
+            const len = headResp.headers.get('content-length');
+            if (len) {
+              const b = parseInt(len, 10);
+              if (!isNaN(b) && b > 0) bytes = b;
+            }
+            if (headResp.headers.get('accept-ranges') === 'bytes') {
+              item.supportsByteRanges = true;
+            }
+          } catch {}
+        }
+
+        if (bytes && !isNaN(bytes) && bytes > 0) {
+          item.sizeBytes = bytes;
+          item.sizeFormatted = VideoRegistry.formatBytes(bytes);
+          const resStr = item.resolution && item.resolution !== 'Auto' ? ` · ${item.resolution}` : '';
+          item.metaFormatted = `${item.format}${resStr} · ${item.sizeFormatted}`;
+        }
+      }
+
+      this.notify();
+    } catch {}
+  }
+
+  private static notify(): void {
+    const list = this.getVideosForTab(this.activeTabId);
+    this.listeners.forEach((l) => {
+      try {
+        l(list);
+      } catch {}
+    });
+  }
+}
