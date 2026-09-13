@@ -296,3 +296,18 @@ export function evaluateDetectionRules(
   // 9. Direct Media (OS): response type is media OR Content-Type maps via jm table
   const mappedMimeExt = mapContentTypeToExtension(contentType);
   const isDirectCandidate = req.type === 'media' || mappedMimeExt !== null;
+
+  if (isDirectCandidate) {
+    // Resolve byte size from Content-Range or Content-Length
+    let totalBytes: number | undefined;
+    if (contentRange) {
+      const slashIdx = contentRange.lastIndexOf('/');
+      if (slashIdx !== -1) {
+        const val = parseInt(contentRange.substring(slashIdx + 1), 10);
+        if (!isNaN(val) && val > 0) totalBytes = val;
+      }
+    }
+    if (!totalBytes && contentLength) {
+      const val = parseInt(contentLength, 10);
+      if (!isNaN(val) && val > 0) totalBytes = val;
+    }
