@@ -90,3 +90,32 @@ export class M3U8Parser {
       if (a.bandwidth && b.bandwidth) return b.bandwidth - a.bandwidth;
       return 0;
     });
+
+    return {
+      isMaster,
+      variants,
+      hasDrm,
+    };
+  }
+
+  private static parseAttributes(attrString: string): Record<string, string> {
+    const attrs: Record<string, string> = {};
+    const regex = /([A-Z0-9-]+)=(?:"([^"]*)"|([^,]*))/g;
+    let match;
+    while ((match = regex.exec(attrString)) !== null) {
+      attrs[match[1]] = match[2] !== undefined ? match[2] : match[3];
+    }
+    return attrs;
+  }
+
+  public static resolveUrl(relativeUrl: string, baseUrl: string): string {
+    if (relativeUrl.startsWith('http://') || relativeUrl.startsWith('https://')) {
+      return relativeUrl;
+    }
+    try {
+      return new URL(relativeUrl, baseUrl).href;
+    } catch {
+      return relativeUrl;
+    }
+  }
+}
