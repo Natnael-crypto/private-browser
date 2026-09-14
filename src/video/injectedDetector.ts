@@ -313,3 +313,159 @@ export const INJECTED_VIDEO_DETECTOR_SCRIPT = `
               }
             } catch(e) {}
           }, { passive: true });
+        } catch(e) {}
+        return origXhrSend.apply(this, arguments);
+      };
+    }
+  } catch(e) {}
+
+  // --- 3. HTMLMediaElement.prototype.play Hook ---
+  try {
+    if (window.HTMLMediaElement && window.HTMLMediaElement.prototype.play) {
+      var origPlay = window.HTMLMediaElement.prototype.play;
+      window.HTMLMediaElement.prototype.play = function() {
+        try {
+          var src = this.currentSrc || this.src;
+          if (src && src.indexOf('blob:') !== 0) {
+            postVideo({
+              mediaUrl: src,
+              title: this.getAttribute('title') || getBestPageTitle(),
+              thumbnail: this.poster || this.getAttribute('poster') || getBestThumbnail(),
+            });
+          }
+        } catch(e) {}
+        return origPlay.apply(this, arguments);
+      };
+    }
+  } catch(e) {}
+
+  // --- 4. PerformanceObserver for Background Network Requests (VID-2) ---
+  try {
+    if (window.PerformanceObserver) {
+      var observer = new PerformanceObserver(function(list) {
+        try {
+          list.getEntries().forEach(function(entry) {
+            var name = entry.name;
+            if (name && isMediaUrl(name)) {
+              var size = (entry.encodedBodySize && entry.encodedBodySize > 0)
+                ? entry.encodedBodySize
+                : ((entry.decodedBodySize && entry.decodedBodySize > 0)
+                  ? entry.decodedBodySize
+                  : (entry.transferSize || 0));
+              postVideo({ mediaUrl: name, sizeBytes: size > 0 ? size : undefined });
+            }
+          });
+        } catch(e) {}
+      });
+      observer.observe({ entryTypes: ['resource'] });
+    }
+  } catch(e) {}
+
+  // --- 5. Specialized Site Extractors (Vimeo, YouTube, etc.) ---
+  function scanSiteConfigs() {
+    try {
+      if (window.playerConfig && window.playerConfig.request && window.playerConfig.request.files) {
+        var files = window.playerConfig.request.files;
+        if (files.hls && files.hls.cdns) {
+          Object.values(files.hls.cdns).forEach(function(cdn) {
+            if (cdn && cdn.url) postVideo({ mediaUrl: cdn.url, format: 'HLS', title: window.playerConfig.video?.title });
+          });
+        }
+        if (Array.isArray(files.progressive)) {
+          files.progressive.forEach(function(p) {
+            if (p && p.url) postVideo({
+              mediaUrl: p.url,
+              format: 'MP4',
+              resolution: p.quality,
+              title: window.playerConfig.video?.title
+            });
+          });
+        }
+      }
+    } catch(e) {}
+
+    try {
+      if (window.ytcfg && window.ytcfg.data_ && window.ytcfg.data_.PLAYER_VARS) {
+        var pvars = window.ytcfg.data_.PLAYER_VARS;
+        if (pvars.embedded_player_response) {
+          var parsed = JSON.parse(pvars.embedded_player_response);
+          var formats = parsed?.streamingData?.formats;
+          if (Array.isArray(formats)) {
+            formats.forEach(function(f) {
+              if (f.url) postVideo({ mediaUrl: f.url, resolution: f.qualityLabel, format: 'MP4' });
+            });
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  // --- 6. DRM Detection EME Hooks (VID-8) ---
+  try {
+    if (navigator.requestMediaKeySystemAccess) {
+      var origRequestMediaKey = navigator.requestMediaKeySystemAccess;
+      navigator.requestMediaKeySystemAccess = function(keySystem, supportedConfigurations) {
+        if (keySystem && (keySystem.indexOf('widevine') !== -1 || keySystem.indexOf('playready') !== -1 || keySystem.indexOf('clearkey') !== -1 || keySystem.indexOf('fairplay') !== -1)) {
+          try {
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'pb_drm_detected',
+                keySystem: keySystem
+              }));
+            }
+          } catch(e) {}
+        }
+        return origRequestMediaKey.apply(this, arguments);
+      };
+    }
+  } catch(e) {}
+
+  // --- 7. Lifecycle & Observers ---
+  function startObserver() {
+    try {
+      var target = document.documentElement || document.body;
+      if (target && !window.__pb_observer_started) {
+        window.__pb_observer_started = true;
+        var mutObserver = new MutationObserver(function() {
+          scanDomVideos();
+          scanSiteConfigs();
+        });
+        mutObserver.observe(target, { childList: true, subtree: true });
+      }
+    } catch(e) {}
+  }
+
+  window.__pb_scan = function() {
+    scanDomVideos();
+    scanSiteConfigs();
+    startObserver();
+  };
+
+  scanDomVideos();
+  scanSiteConfigs();
+  startObserver();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      scanDomVideos();
+      scanSiteConfigs();
+      startObserver();
+    });
+  }
+  window.addEventListener('load', function() {
+    scanDomVideos();
+    scanSiteConfigs();
+    startObserver();
+  });
+
+  window.addEventListener('click', function() {
+    setTimeout(scanDomVideos, 400);
+  }, { passive: true });
+
+  var interval = setInterval(function() {
+    scanDomVideos();
+    scanSiteConfigs();
+    startObserver();
+  }, 2500);
+})();
+`;
