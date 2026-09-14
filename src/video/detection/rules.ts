@@ -311,3 +311,16 @@ export function evaluateDetectionRules(
       const val = parseInt(contentLength, 10);
       if (!isNaN(val) && val > 0) totalBytes = val;
     }
+
+    // Size filter: ignore if below 500,000 bytes (unless state.allowSmallFiles)
+    if (totalBytes !== undefined && totalBytes < 500000 && !state.allowSmallFiles) {
+      return { matched: false, reason: 'small_file_ignored' };
+    }
+
+    // Anti-spam filter: if page already has HLS/DASH manifest and file < 20,000,000 bytes, ignore (it is a segment)
+    if (state.hasManifestStream && (!totalBytes || totalBytes < 20000000)) {
+      return { matched: false, reason: 'anti_spam_segment_ignored' };
+    }
+
+    const supportsRanges = acceptRanges === 'bytes' || Boolean(contentRange);
+    const resolved = resolveFilenameAndExtension(req.url, contentType, contentDisposition);
