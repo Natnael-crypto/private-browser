@@ -87,3 +87,92 @@ export default function BrowserScreen({
     blockAds,
     blockCookies,
     sendGpc,
+    searchEngine,
+    setSearchEngine,
+    searchSuggestions,
+    httpsOnly,
+    uaPreset,
+    customUa,
+    spoofLanguage,
+    spoofTimezone,
+    roundScreen,
+    reduceFingerprinting,
+    globalJs,
+    blockThirdPartyScripts,
+    blockAutoplay,
+    blockLocalNetwork,
+    imagesEnabled,
+    blockWebFonts,
+    blockServiceWorkers,
+    blockBeacons,
+    blockClipboardRead,
+    warnRiskyDownloads,
+    blockDriveByNav,
+    confirmAppRedirects,
+    privateKeyboard,
+    detectInsecureForms,
+  } = useBrowserStore();
+
+  const activeTab: BrowserTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+
+  const [urlInput, setUrlInput] = useState('');
+  const [isEditingBottomUrl, setIsEditingBottomUrl] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [detectedVideos, setDetectedVideos] = useState<DetectedVideoItem[]>([]);
+  const [shieldModalVisible, setShieldModalVisible] = useState(false);
+  const [siteBrokenConfirmVisible, setSiteBrokenConfirmVisible] = useState(false);
+  const [searchEngineModalVisible, setSearchEngineModalVisible] = useState(false);
+  const [redirectModalData, setRedirectModalData] = useState<{
+    visible: boolean;
+    appName: string;
+    targetUrl: string;
+  } | null>(null);
+  const [browserNotice, setBrowserNotice] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  } | null>(null);
+  const [activeDownloadCount, setActiveDownloadCount] = useState<number>(0);
+  const [activeDownloadSpeed, setActiveDownloadSpeed] = useState<number>(0);
+  const [bottomBarHeight, setBottomBarHeight] = useState<number>(Platform.OS === 'android' ? 148 : 130);
+
+  useEffect(() => {
+    (RNStatusBar as any).setTranslucent?.(true);
+    (RNStatusBar as any).setBackgroundColor?.('transparent');
+    const unsub = DownloadManager.subscribe(() => {
+      setActiveDownloadCount(DownloadManager.getActiveDownloads().length);
+      setActiveDownloadSpeed(DownloadManager.getTotalSpeed());
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (activeTab?.id) {
+      VideoRegistry.setActiveTab(activeTab.id);
+    }
+    const unsub = VideoRegistry.subscribe((list) => {
+      setDetectedVideos(list);
+    });
+    return unsub;
+  }, [activeTab?.id]);
+
+  // Debounced search suggestions from selected search engine (Privacy: off by default)
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!searchSuggestions) {
+        setSuggestions([]);
+        return;
+      }
+      const trimmed = urlInput.trim();
+      if (!trimmed) {
+        setSuggestions([]);
+        return;
+      }
+      const list = await SuggestionsService.fetchSuggestions(trimmed, searchEngine);
+      setSuggestions(list);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [urlInput, searchSuggestions, searchEngine]);
+
+  const canGoBack = Boolean(activeTab.canGoBack) || !activeTab.isBlank;
+  const canGoForward = Boolean(activeTab.canGoForward) || Boolean(activeTab.isBlank && activeTab.homeForward);
