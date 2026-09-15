@@ -324,3 +324,17 @@ export function evaluateDetectionRules(
 
     const supportsRanges = acceptRanges === 'bytes' || Boolean(contentRange);
     const resolved = resolveFilenameAndExtension(req.url, contentType, contentDisposition);
+
+    return {
+      matched: true,
+      type: 'direct',
+      hash: `media_hash_${hashString(req.url)}`,
+      filename: resolved.filename,
+      extension: resolved.extension,
+      sizeBytes: totalBytes,
+      supportsByteRanges: supportsRanges,
+    };
+  }
+
+  return { matched: false, reason: 'no_media_matched' };
+}
