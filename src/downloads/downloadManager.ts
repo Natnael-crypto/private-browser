@@ -164,3 +164,168 @@ export class DownloadManager {
     for (const d of this.activeDownloads.values()) {
       if (d.state === 'downloading') {
         sum += d.speedBytesPerSec || 0;
+      }
+    }
+    return sum;
+  }
+
+  public static async retryDownload(id: string): Promise<void> {
+    const item = this.activeDownloads.get(id);
+    if (!item) return;
+
+    item.state = 'downloading';
+    item.error = undefined;
+    item.progress = 0.05;
+    item.statusText = 'Retrying download...';
+    item.speedText = 'Connecting...';
+    item.etaText = 'Calculating...';
+    item.startTime = Date.now();
+    this.notify();
+
+    const video = item.videoItem || {
+      id: item.videoId,
+      hash: id,
+      mediaUrl: item.fileUri || '',
+      sourcePageUrl: item.sourcePageUrl,
+      title: item.title,
+      format: item.format,
+      type: 'direct' as const,
+      resolution: item.resolution,
+      qualities: [item.resolution],
+      audioTracks: [],
+      subtitles: [],
+      metaFormatted: `${item.format} · ${item.resolution}`,
+      protectedStream: false,
+      hasDrm: false,
+      needsDecrypt: false,
+      supportsByteRanges: false,
+      detectedAt: Date.now(),
+    };
+
+    const isHls = video.format === 'HLS' || video.mediaUrl.includes('.m3u8');
+    if (isHls) {
+      this.executeHlsDownload(id, video.mediaUrl, item.fileUri || '', item);
+    } else {
+      this.executeDirectDownload(id, video.mediaUrl, item.fileUri || '', item);
+    }
+  }
+
+  public static async getSavedVideos(): Promise<SavedVideoItem[]> {
+    const records = await db.getDownloads();
+    const completed = records.filter((r) => r.state === 'completed' && r.file_uri);
+
+    return completed.map((r) => {
+      let host = 'Unknown';
+      try {
+        if (r.video?.source_page_url) {
+          host = new URL(r.video.source_page_url).hostname.replace('www.', '');
+        }
+      } catch {}
+
+      const bytesDone = r.bytes_done || 0;
+      let sizeStr = '0 MB';
+      if (bytesDone > 0) {
+        const mb = bytesDone / (1024 * 1024);
+        sizeStr = mb < 10 ? `${mb.toFixed(1)} MB` : `${Math.round(mb)} MB`;
+      }
+      const res = r.video?.resolution || 'Auto';
+      const meta = `${res} · ${sizeStr} · Today`;
+
+      return {
+        id: r.id,
+        videoId: r.video_id,
+        title: r.final_name || r.video?.title || 'Saved Video',
+        meta,
+        source: host,
+        sourcePageUrl: r.video?.source_page_url || '',
+        fileUri: r.file_uri || '',
+        thumbnail: r.video?.thumbnail || null,
+        resolution: res,
+        format: r.video?.format || 'MP4',
+        sizeBytes: bytesDone,
+        completedAt: r.completed_at || r.started_at,
+      };
+    });
+  }
+
+  /**
+   * Start a download for a detected video (DL-1, DL-4, DL-9, DL-10, SEC-3)
+   */
+  public static async startDownload(video: DetectedVideoItem): Promise<string> {
+    // Check Wi-Fi restriction before starting (DL-4)
+    const net = await DownloadQueue.isNetworkAllowed();
+    if (!net.allowed) {
+      throw new Error(net.reason || 'Wi-Fi Only is enabled. Connect to Wi-Fi to start downloads.');
+    }
+
+    const downloadId = Crypto.randomUUID();
+    const tempUuid = Crypto.randomUUID();
+    const isHls = video.format === 'HLS' || video.mediaUrl.includes('.m3u8');
+    const fileExtension = isHls
+      ? 'ts'
+      : video.format.toLowerCase() === 'webm'
+        ? 'webm'
+        : 'mp4';
+    const tempFileUri = `${FileSystem.documentDirectory}${tempUuid}.${fileExtension}`;
+
+    let host = 'example.com';
+    try {
+      host = new URL(video.sourcePageUrl).hostname.replace('www.', '');
+    } catch {}
+
+    // Section 6.5: Remove 155189248 fake size constant. Total size 0 indicates unknown size.
+    const totalBytes = video.sizeBytes && video.sizeBytes > 0 ? video.sizeBytes : 0;
+    const activeItem: ActiveDownloadItem = {
+      id: downloadId,
+      videoId: video.id,
+      title: video.title,
+      sourceHost: host,
+      sourcePageUrl: video.sourcePageUrl,
+      progress: 0.05,
+      statusText: totalBytes > 0 ? `0 of ${(totalBytes / (1024 * 1024)).toFixed(0)} MB` : 'Connecting...',
+      state: 'downloading',
+      totalBytes,
+      bytesDone: 0,
+      fileUri: tempFileUri,
+      thumbnail: video.thumbnail || null,
+      speedBytesPerSec: 0,
+      speedText: 'Connecting...',
+      etaText: 'Calculating...',
+      resolution: video.resolution || 'Auto',
+      format: video.format || 'MP4',
+      startTime: Date.now(),
+      videoItem: video,
+    };
+
+    this.activeDownloads.set(downloadId, activeItem);
+    this.notify();
+
+    // DL-10: Write video record to database only when user starts a download
+    await db.saveVideo({
+      id: video.id,
+      source_page_url: video.sourcePageUrl,
+      media_url: video.mediaUrl,
+      title: video.title,
+      format: video.format,
+      resolution: video.resolution,
+      size_bytes: video.sizeBytes ?? null,
+      protected: video.protectedStream ? 1 : 0,
+      thumbnail: video.thumbnail ?? null,
+      detected_at: video.detectedAt,
+    });
+
+    await db.saveDownload({
+      id: downloadId,
+      video_id: video.id,
+      state: 'downloading',
+      bytes_done: 0,
+      segments_done: 0,
+      segments_total: 1,
+      temp_name: tempUuid,
+      file_uri: tempFileUri,
+      final_name: this.cleanFileName(video.title, fileExtension),
+      started_at: Date.now(),
+    });
+
+    if (isHls) {
+      this.executeHlsDownload(downloadId, video.mediaUrl, tempFileUri, activeItem);
