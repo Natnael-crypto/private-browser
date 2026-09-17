@@ -58,3 +58,33 @@ export class SegmentPool<T> {
     return new Promise((resolve, reject) => {
       this.resolveAll = resolve;
       this.rejectAll = reject;
+
+      if (this.queue.length === 0) {
+        resolve(this.results);
+        return;
+      }
+
+      const workersToStart = Math.min(this.concurrency, this.queue.length);
+      for (let i = 0; i < workersToStart; i++) {
+        this.startWorker();
+      }
+    });
+  }
+
+  private async startWorker(): Promise<void> {
+    if (this.abortController.signal.aborted) return;
+    this.activeWorkers++;
+
+    while (this.queue.length > 0 && !this.abortController.signal.aborted) {
+      const task = this.queue.shift();
+      if (!task) break;
+
+      try {
+        const result = await task.execute(this.abortController.signal);
+        this.results.set(task.id, result);
+        this.consecutiveErrors = 0;
+
+        // Slowly restore concurrency if it was degraded
+        if (this.concurrency < this.maxConcurrency && Math.random() < 0.1) {
+          this.concurrency = Math.min(this.maxConcurrency, this.concurrency + 1);
+        }
