@@ -17,3 +17,21 @@ export interface SpeedProgress {
   speedMbps: number;
   formattedSpeed: string;
   speedFormatted: string;
+  formattedSpeedMbps: string;
+  etaSeconds: number | null;
+  formattedEta: string;
+  etaFormatted: string;
+  percent: number | null;
+  segmentsDone?: number;
+  segmentsTotal?: number;
+}
+
+export class SpeedMeter {
+  private windowDurationMs: number;
+  private samples: SpeedSample[] = [];
+  private emaSpeed = 0;
+  private alpha = 0.25; // Smoothing factor
+  private totalBytes?: number;
+  private currentBytes = 0;
+  private lastEmitTime = 0;
+  private emitIntervalMs = 250; // Throttle UI updates to 4/sec
