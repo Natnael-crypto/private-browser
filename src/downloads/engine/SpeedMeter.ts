@@ -35,3 +35,23 @@ export class SpeedMeter {
   private currentBytes = 0;
   private lastEmitTime = 0;
   private emitIntervalMs = 250; // Throttle UI updates to 4/sec
+
+  constructor(totalBytes?: number, windowDurationMs = 5000) {
+    this.totalBytes = totalBytes && totalBytes > 0 ? totalBytes : undefined;
+    this.windowDurationMs = windowDurationMs;
+  }
+
+  public setTotalBytes(total: number): void {
+    if (total > 0) {
+      this.totalBytes = total;
+    }
+  }
+
+  /**
+   * Record newly completed bytes
+   */
+  public recordBytes(totalBytesDoneSoFar: number, now = Date.now()): void {
+    this.currentBytes = totalBytesDoneSoFar;
+    this.samples.push({ timestamp: now, bytesDone: totalBytesDoneSoFar });
+
+    // Prune samples older than the sliding window
