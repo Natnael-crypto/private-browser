@@ -55,3 +55,21 @@ export class SpeedMeter {
     this.samples.push({ timestamp: now, bytesDone: totalBytesDoneSoFar });
 
     // Prune samples older than the sliding window
+    const cutoff = now - this.windowDurationMs;
+    while (this.samples.length > 2 && this.samples[0].timestamp < cutoff) {
+      this.samples.shift();
+    }
+
+    this.calculateSpeed();
+  }
+
+  private calculateSpeed(): void {
+    if (this.samples.length < 2) return;
+
+    const oldest = this.samples[0];
+    const newest = this.samples[this.samples.length - 1];
+    const elapsedSec = (newest.timestamp - oldest.timestamp) / 1000;
+
+    if (elapsedSec > 0.05) {
+      const deltaBytes = Math.max(0, newest.bytesDone - oldest.bytesDone);
+      const instantSpeed = deltaBytes / elapsedSec;
