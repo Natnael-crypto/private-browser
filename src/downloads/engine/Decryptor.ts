@@ -17,3 +17,21 @@ export class Decryptor {
     iv: Uint8Array | ArrayBuffer
   ): Promise<Uint8Array> {
     let cryptoObj: any = typeof globalThis.crypto !== 'undefined' ? globalThis.crypto : undefined;
+    if (!cryptoObj && typeof require !== 'undefined') {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        cryptoObj = require('crypto').webcrypto;
+      } catch {}
+    }
+
+    if (!cryptoObj?.subtle) {
+      throw new Error('WebCrypto subtle is unavailable on this platform');
+    }
+
+    const cryptoKey = await cryptoObj.subtle.importKey(
+      'raw',
+      key,
+      { name: 'AES-CBC' },
+      false,
+      ['decrypt']
+    );
