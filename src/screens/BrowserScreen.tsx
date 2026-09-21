@@ -176,3 +176,91 @@ export default function BrowserScreen({
 
   const canGoBack = Boolean(activeTab.canGoBack) || !activeTab.isBlank;
   const canGoForward = Boolean(activeTab.canGoForward) || Boolean(activeTab.isBlank && activeTab.homeForward);
+
+  const handleBack = useCallback(() => {
+    const tab = useBrowserStore.getState().tabs.find((t) => t.id === activeTab.id) || activeTab;
+    const ref = webViewRefs.current[tab.id];
+
+    if (tab.isBlank) {
+      DebugLogger.backForward('back', 'already_blank');
+      return;
+    }
+
+    if (tab.canGoBack && ref) {
+      DebugLogger.backForward('back', 'native_goBack', { canGoBack: tab.canGoBack });
+      ref.goBack();
+      return;
+    }
+
+    // Tab is on its first page: return to Home without destroying the WebView, so Forward can return to it
+    DebugLogger.backForward('back', 'first_page_to_blank');
+    updateTab(tab.id, {
+      isBlank: true,
+      homeForward: true,
+      canGoBack: false,
+      canGoForward: true,
+      loadError: null,
+    });
+  }, [activeTab, updateTab]);
+
+  const handleForward = useCallback(() => {
+    const tab = useBrowserStore.getState().tabs.find((t) => t.id === activeTab.id) || activeTab;
+    const ref = webViewRefs.current[tab.id];
+
+    // If user went back to home screen from first page and now presses Forward:
+    if (tab.isBlank && tab.homeForward) {
+      DebugLogger.backForward('forward', 'restore_from_blank');
+      updateTab(tab.id, {
+        isBlank: false,
+        homeForward: false,
+      });
+      return;
+    }
+
+    if (tab.canGoForward && ref) {
+      DebugLogger.backForward('forward', 'native_goForward');
+      ref.goForward();
+      return;
+    }
+
+    DebugLogger.backForward('forward', 'noop');
+  }, [activeTab, updateTab]);
+
+  const handleReloadOrStop = useCallback(() => {
+    const tab = useBrowserStore.getState().tabs.find((t) => t.id === activeTab.id) || activeTab;
+    const ref = webViewRefs.current[tab.id];
+    if (tab.isLoading) {
+      stopTab(tab.id);
+      if (ref?.stopLoading) {
+        ref.stopLoading();
+      }
+    } else {
+      updateTab(tab.id, { loadError: null });
+      reloadTab(tab.id);
+      if (ref?.reload) {
+        ref.reload();
+      }
+    }
+  }, [activeTab, reloadTab, stopTab, updateTab]);
+
+  // Load Timeout (30 seconds): if loading doesn't finish within 30s, show error page
+  useEffect(() => {
+    if (!activeTab.isLoading) return;
+    const timeoutTimer = setTimeout(() => {
+      const currentTab = useBrowserStore.getState().tabs.find((t) => t.id === activeTab.id);
+      if (currentTab && currentTab.isLoading) {
+        DebugLogger.load('load_timeout_30s', { tabId: currentTab.id, url: currentTab.currentUrl });
+        updateTab(currentTab.id, {
+          isLoading: false,
+          loadError: {
+            description: 'Connection timed out after 30 seconds. The server took too long to respond.',
+            failingUrl: currentTab.currentUrl,
+          },
+        });
+        const ref = webViewRefs.current[currentTab.id];
+        ref?.stopLoading?.();
+      }
+    }, 30000);
+
+    return () => clearTimeout(timeoutTimer);
+  }, [activeTab.id, activeTab.isLoading, updateTab]);
