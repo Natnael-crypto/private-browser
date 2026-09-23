@@ -264,3 +264,93 @@ export default function BrowserScreen({
 
     return () => clearTimeout(timeoutTimer);
   }, [activeTab.id, activeTab.isLoading, updateTab]);
+
+  // Hardware Back Button navigation for Web & In-Browser Modals
+  useEffect(() => {
+    if (!isActiveScreen) return;
+
+    const onHardwareBack = () => {
+      if (searchEngineModalVisible) {
+        setSearchEngineModalVisible(false);
+        return true;
+      }
+      if (browserNotice?.visible) {
+        setBrowserNotice(null);
+        return true;
+      }
+      if (redirectModalData?.visible) {
+        setRedirectModalData(null);
+        return true;
+      }
+      if (siteBrokenConfirmVisible) {
+        setSiteBrokenConfirmVisible(false);
+        return true;
+      }
+      if (shieldModalVisible) {
+        setShieldModalVisible(false);
+        return true;
+      }
+      if (isEditingBottomUrl) {
+        setIsEditingBottomUrl(false);
+        setSuggestions([]);
+        setUrlInput('');
+        return true;
+      }
+      if (urlInput.length > 0 && activeTab.isBlank) {
+        setUrlInput('');
+        setSuggestions([]);
+        return true;
+      }
+      if (!activeTab.isBlank) {
+        handleBack();
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => sub.remove();
+  }, [
+    isActiveScreen,
+    isEditingBottomUrl,
+    urlInput,
+    shieldModalVisible,
+    siteBrokenConfirmVisible,
+    redirectModalData,
+    browserNotice,
+    searchEngineModalVisible,
+    activeTab,
+    canGoBack,
+    handleBack,
+  ]);
+
+  // Extract display host
+  const hostDisplay = React.useMemo(() => {
+    if (!activeTab || activeTab.isBlank || !activeTab.url || activeTab.url.startsWith('about:')) {
+      return 'Search or enter address';
+    }
+    try {
+      return new URL(activeTab.url).hostname.replace('www.', '');
+    } catch {
+      return activeTab.url;
+    }
+  }, [activeTab]);
+
+  // Combined Injected Script
+  const combinedInjectedJavaScript = React.useMemo(() => {
+    const isDark = Boolean(theme.isDark);
+    const mode = isDark ? 'dark' : 'light';
+
+    const darkThemeScript = `
+      (function() {
+        try {
+          var isDark = ${isDark};
+          var mode = '${mode}';
+
+          // 1. Inject or update meta color-scheme
+          var meta = document.querySelector('meta[name="color-scheme"]');
+          if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'color-scheme';
+            if (document.head) {
+              document.head.appendChild(meta);
