@@ -30,3 +30,19 @@ export class Fetcher {
           method: 'GET',
           headers: options.headers,
           signal: options.signal,
+        });
+
+        // Retry on 5xx server errors or 429 Too Many Requests
+        if (!resp.ok && (resp.status >= 500 || resp.status === 429)) {
+          if (attempt === maxRetries) {
+            return resp;
+          }
+          await this.sleep(delay, options.signal);
+          delay = Math.min(10000, delay * 2);
+          continue;
+        }
+
+        return resp;
+      } catch (err: any) {
+        if (options.signal?.aborted) {
+          throw err;
