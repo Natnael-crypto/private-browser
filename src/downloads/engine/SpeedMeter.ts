@@ -73,3 +73,23 @@ export class SpeedMeter {
     if (elapsedSec > 0.05) {
       const deltaBytes = Math.max(0, newest.bytesDone - oldest.bytesDone);
       const instantSpeed = deltaBytes / elapsedSec;
+
+      if (this.emaSpeed === 0) {
+        this.emaSpeed = instantSpeed;
+      } else {
+        this.emaSpeed = this.alpha * instantSpeed + (1 - this.alpha) * this.emaSpeed;
+      }
+    }
+  }
+
+  /**
+   * Get current progress snapshot
+   */
+  public getProgress(segmentsDone?: number, segmentsTotal?: number): SpeedProgress {
+    this.calculateSpeed();
+    const speed = Math.max(0, Math.round(this.emaSpeed));
+    const speedMbps = Number(((speed * 8) / (1000 * 1000)).toFixed(2));
+
+    let etaSeconds: number | null = null;
+    if (this.totalBytes && this.totalBytes > this.currentBytes && speed > 0) {
+      etaSeconds = Math.max(0, Math.round((this.totalBytes - this.currentBytes) / speed));
