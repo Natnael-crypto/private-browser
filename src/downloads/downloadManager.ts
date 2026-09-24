@@ -329,3 +329,168 @@ export class DownloadManager {
 
     if (isHls) {
       this.executeHlsDownload(downloadId, video.mediaUrl, tempFileUri, activeItem);
+    } else {
+      this.executeDirectDownload(downloadId, video.mediaUrl, tempFileUri, activeItem);
+    }
+
+    return downloadId;
+  }
+
+  private static async executeHlsDownload(
+    downloadId: string,
+    m3u8Url: string,
+    destinationUri: string,
+    item: ActiveDownloadItem
+  ): Promise<void> {
+    const abortCtrl = new AbortController();
+    this.activeAbortControllers.set(downloadId, abortCtrl);
+
+    try {
+      const headers = this.buildDownloadHeaders(item.sourcePageUrl, item.videoItem);
+      const resp = await Fetcher.fetchWithRetry(m3u8Url, { headers, signal: abortCtrl.signal });
+      if (!resp.ok) throw new Error(`Failed to load HLS playlist: HTTP ${resp.status}`);
+      const text = await resp.text();
+
+      const parsed = M3U8Parser.parse(text, m3u8Url);
+      let mediaPlaylistUrl = m3u8Url;
+      let mediaPlaylistText = text;
+
+      if (parsed.isMaster && parsed.variants.length > 0) {
+        let chosenVariant = parsed.variants[0];
+        if (item.resolution && item.resolution !== '---' && item.resolution !== 'Auto') {
+          const match = parsed.variants.find((v) => v.qualityLabel === item.resolution);
+          if (match) chosenVariant = match;
+        }
+        mediaPlaylistUrl = chosenVariant.uri;
+        const subResp = await Fetcher.fetchWithRetry(mediaPlaylistUrl, { headers, signal: abortCtrl.signal });
+        if (!subResp.ok) throw new Error('Failed to load HLS media variant playlist');
+        mediaPlaylistText = await subResp.text();
+      }
+
+      // Check for AES-128 Encryption (#EXT-X-KEY)
+      let aesKeyBuffer: ArrayBuffer | null = null;
+      let aesKeyIv: Uint8Array | null = null;
+      const keyMatch = mediaPlaylistText.match(/#EXT-X-KEY:METHOD=AES-128(?:,URI="([^"]+)")?(?:,IV=(0x[0-9a-fA-F]+))?/i);
+      if (keyMatch && keyMatch[1]) {
+        const keyUrl = M3U8Parser.resolveUrl(keyMatch[1], mediaPlaylistUrl);
+        const keyResp = await Fetcher.fetchWithRetry(keyUrl, { headers, signal: abortCtrl.signal });
+        if (keyResp.ok) {
+          aesKeyBuffer = await keyResp.arrayBuffer();
+        }
+        if (keyMatch[2]) {
+          const ivHex = keyMatch[2].slice(2).padStart(32, '0');
+          const ivBytes = new Uint8Array(16);
+          for (let i = 0; i < 16; i++) {
+            ivBytes[i] = parseInt(ivHex.substr(i * 2, 2), 16);
+          }
+          aesKeyIv = ivBytes;
+        }
+      }
+
+      interface HlsSeg {
+        url: string;
+        seq: number;
+        rangeHeader?: string;
+      }
+      const segments: HlsSeg[] = [];
+      let initSegmentUrl: string | null = null;
+      let initRangeHeader: string | undefined = undefined;
+      let pendingRangeHeader: string | undefined = undefined;
+      let lastEndOffset = 0;
+      let mediaSequence = 0;
+
+      const lines = mediaPlaylistText
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+
+      for (const line of lines) {
+        if (line.startsWith('#EXT-X-MEDIA-SEQUENCE:')) {
+          const seq = parseInt(line.replace('#EXT-X-MEDIA-SEQUENCE:', '').trim(), 10);
+          if (!isNaN(seq)) mediaSequence = seq;
+        } else if (line.startsWith('#EXT-X-MAP:')) {
+          const uriMatch = line.match(/URI="([^"]+)"/);
+          if (uriMatch) {
+            initSegmentUrl = M3U8Parser.resolveUrl(uriMatch[1], mediaPlaylistUrl);
+          }
+          const rangeMatch = line.match(/BYTERANGE="([^"]+)"/);
+          if (rangeMatch) {
+            const parts = rangeMatch[1].split('@');
+            const length = parseInt(parts[0], 10);
+            const offset = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+            initRangeHeader = `bytes=${offset}-${offset + length - 1}`;
+          }
+        } else if (line.startsWith('#EXT-X-BYTERANGE:')) {
+          const parts = line.slice('#EXT-X-BYTERANGE:'.length).split('@');
+          const length = parseInt(parts[0], 10);
+          const offset = parts.length > 1 ? parseInt(parts[1], 10) : lastEndOffset;
+          pendingRangeHeader = `bytes=${offset}-${offset + length - 1}`;
+          lastEndOffset = offset + length;
+        } else if (!line.startsWith('#')) {
+          const segUrl = M3U8Parser.resolveUrl(line, mediaPlaylistUrl);
+          segments.push({
+            url: segUrl,
+            seq: mediaSequence + segments.length,
+            rangeHeader: pendingRangeHeader,
+          });
+          pendingRangeHeader = undefined;
+        }
+      }
+
+      if (segments.length === 0) throw new Error('No video segments found in playlist');
+
+      try {
+        await FileSystem.deleteAsync(destinationUri, { idempotent: true });
+      } catch {}
+
+      let bytesTotalAccum = 0;
+      let isFirstWrite = true;
+      const speedMeter = new SpeedMeter(item.totalBytes > 0 ? item.totalBytes : undefined);
+
+      // Download and write init segment if present
+      if (initSegmentUrl) {
+        const initHeaders = { ...headers };
+        if (initRangeHeader) initHeaders['Range'] = initRangeHeader;
+        const initResp = await Fetcher.fetchWithRetry(initSegmentUrl, { headers: initHeaders, signal: abortCtrl.signal });
+        const initBuf = await initResp.arrayBuffer();
+        bytesTotalAccum += initBuf.byteLength;
+        await SegmentWriter.writeSegment(destinationUri, initBuf, false);
+        isFirstWrite = false;
+      }
+
+      // Stream segments through SegmentPool (concurrency 6, adaptive)
+      let nextWriteIndex = 0;
+      const readyChunks = new Map<number, Uint8Array>();
+
+      const pool = new SegmentPool<{ index: number; buffer: Uint8Array }>({
+        concurrency: 6,
+        minConcurrency: 2,
+        maxConcurrency: 16,
+      });
+
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const segIndex = i;
+
+        pool.enqueue({
+          id: segIndex,
+          execute: async (signal) => {
+            const segHeaders = { ...headers };
+            if (seg.rangeHeader) segHeaders['Range'] = seg.rangeHeader;
+
+            const sResp = await Fetcher.fetchWithRetry(seg.url, { headers: segHeaders, signal });
+            let segData = new Uint8Array(await sResp.arrayBuffer());
+
+            // Decrypt with AES-128 if encrypted (Section 6.1)
+            if (aesKeyBuffer) {
+              const iv = aesKeyIv || Decryptor.sequenceToIV(seg.seq);
+              const dec = await Decryptor.decryptSegment(segData, aesKeyBuffer, iv);
+              segData = new Uint8Array(dec.buffer as ArrayBuffer, dec.byteOffset, dec.byteLength);
+            }
+
+            readyChunks.set(segIndex, segData);
+            bytesTotalAccum += segData.byteLength;
+
+            // Sequentially flush ready chunks to disk without Base64 bottleneck
+            while (readyChunks.has(nextWriteIndex)) {
+              const toWrite = readyChunks.get(nextWriteIndex)!;
