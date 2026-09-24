@@ -46,3 +46,19 @@ export class Fetcher {
       } catch (err: any) {
         if (options.signal?.aborted) {
           throw err;
+        }
+        if (attempt === maxRetries) {
+          throw err;
+        }
+        await this.sleep(delay, options.signal);
+        delay = Math.min(10000, delay * 2);
+      }
+    }
+
+    throw new Error(`Failed to fetch ${url} after ${maxRetries} retries`);
+  }
+
+  /**
+   * Fetch array buffer with retries
+   */
+  public static async fetchBuffer(url: string, options: FetchOptions = {}): Promise<Uint8Array> {
