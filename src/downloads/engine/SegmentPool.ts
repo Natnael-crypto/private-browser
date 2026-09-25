@@ -88,3 +88,33 @@ export class SegmentPool<T> {
         if (this.concurrency < this.maxConcurrency && Math.random() < 0.1) {
           this.concurrency = Math.min(this.maxConcurrency, this.concurrency + 1);
         }
+
+        if (this.onTaskCompleted) {
+          this.onTaskCompleted(task.id, result, this.queue.length + this.activeWorkers - 1);
+        }
+      } catch (err: any) {
+        if (this.abortController.signal.aborted) break;
+
+        this.errors.set(task.id, err);
+        this.consecutiveErrors++;
+
+        // Adapt: lower concurrency after repeated network errors (Section 6.1)
+        if (this.consecutiveErrors >= 3 && this.concurrency > this.minConcurrency) {
+          this.concurrency = Math.max(this.minConcurrency, this.concurrency - 1);
+        }
+
+        if (this.onTaskFailed) {
+          this.onTaskFailed(task.id, err);
+        }
+      }
+    }
+
+    this.activeWorkers--;
+
+    if (this.activeWorkers === 0 && this.queue.length === 0) {
+      if (this.resolveAll) {
+        this.resolveAll(this.results);
+      }
+    }
+  }
+}
