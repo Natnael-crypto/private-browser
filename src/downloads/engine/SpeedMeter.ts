@@ -93,3 +93,22 @@ export class SpeedMeter {
     let etaSeconds: number | null = null;
     if (this.totalBytes && this.totalBytes > this.currentBytes && speed > 0) {
       etaSeconds = Math.max(0, Math.round((this.totalBytes - this.currentBytes) / speed));
+    }
+
+    let percent: number | null = null;
+    if (this.totalBytes && this.totalBytes > 0) {
+      percent = Math.min(100, Math.max(0, Math.round((this.currentBytes / this.totalBytes) * 100)));
+    } else if (segmentsTotal && segmentsTotal > 0 && segmentsDone !== undefined) {
+      percent = Math.min(100, Math.max(0, Math.round((segmentsDone / segmentsTotal) * 100)));
+    }
+
+    return {
+      bytesDone: this.currentBytes,
+      totalBytes: this.totalBytes,
+      speedBytesPerSec: speed,
+      speedMbps,
+      formattedSpeed: SpeedMeter.formatSpeed(speed),
+      speedFormatted: SpeedMeter.formatSpeed(speed),
+      formattedSpeedMbps: `${speedMbps} Mbps`,
+      etaSeconds,
+      formattedEta: SpeedMeter.formatEta(etaSeconds),
