@@ -35,3 +35,23 @@ export class Decryptor {
       false,
       ['decrypt']
     );
+
+    const decrypted = await cryptoObj.subtle.decrypt(
+      {
+        name: 'AES-CBC',
+        iv: iv instanceof Uint8Array ? iv : new Uint8Array(iv),
+      },
+      cryptoKey,
+      ciphertext
+    );
+
+    return new Uint8Array(decrypted);
+  }
+
+  public static decryptSegment(
+    ciphertext: Uint8Array | ArrayBuffer,
+    key: Uint8Array | ArrayBuffer,
+    iv: Uint8Array | ArrayBuffer
+  ): Promise<Uint8Array> {
+    return this.decryptAes128(ciphertext, key, iv);
+  }
