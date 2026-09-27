@@ -37,3 +37,42 @@ test('SegmentPool: worker pool executes tasks with controlled concurrency', asyn
       execute: async () => {
         executed.push(idx);
         return idx * 10;
+      },
+    });
+  }
+
+  const results = await pool.run();
+  assert.equal(results.size, 12);
+  assert.equal(results.get(5), 50);
+  assert.equal(executed.length, 12);
+});
+
+test('Decryptor: generates standard RFC 8216 sequence IV', () => {
+  const iv0 = Decryptor.sequenceToIv(0);
+  assert.equal(iv0.length, 16);
+  assert.equal(iv0[15], 0);
+
+  const iv1 = Decryptor.sequenceToIv(1);
+  assert.equal(iv1[15], 1);
+
+  const iv256 = Decryptor.sequenceToIv(256);
+  assert.equal(iv256[14], 1);
+  assert.equal(iv256[15], 0);
+});
+
+test('VimeoExtractor: correctly extracts progressive MP4s and HLS playlists', () => {
+  const sampleConfig = {
+    video: {
+      id: 12345,
+      title: 'Sample Vimeo Video',
+      duration: 120,
+      thumbs: {
+        '640': 'https://vimeo.com/thumb640.jpg',
+        '1280': 'https://vimeo.com/thumb1280.jpg',
+      },
+    },
+    request: {
+      files: {
+        progressive: [
+          { quality: '1080p', url: 'https://vimeo.com/1080p.mp4', height: 1080 },
+          { quality: '720p', url: 'https://vimeo.com/720p.mp4', height: 720 },
