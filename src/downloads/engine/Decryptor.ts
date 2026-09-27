@@ -55,3 +55,20 @@ export class Decryptor {
   ): Promise<Uint8Array> {
     return this.decryptAes128(ciphertext, key, iv);
   }
+
+  /**
+   * Helper to derive 16-byte IV from sequence number if IV is not explicitly specified in M3U8
+   * Section 5.2 of RFC 8216: The sequence number is converted to a 16-byte big-endian integer.
+   */
+  public static sequenceToIv(seq: number): Uint8Array {
+    const iv = new Uint8Array(16);
+    const view = new DataView(iv.buffer);
+    // Sequence numbers fit in 32 bits, placed in the last 4 bytes of 16-byte IV
+    view.setUint32(12, seq, false); // big-endian
+    return iv;
+  }
+
+  public static sequenceToIV(seq: number): Uint8Array {
+    return this.sequenceToIv(seq);
+  }
+}
