@@ -62,3 +62,19 @@ export class Fetcher {
    * Fetch array buffer with retries
    */
   public static async fetchBuffer(url: string, options: FetchOptions = {}): Promise<Uint8Array> {
+    const resp = await this.fetchWithRetry(url, options);
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status} fetching ${url}`);
+    }
+
+    const buffer = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    if (options.onBytesReceived) {
+      options.onBytesReceived(bytes.byteLength);
+    }
+
+    return bytes;
+  }
+
+  private static sleep(ms: number, signal?: AbortSignal): Promise<void> {
