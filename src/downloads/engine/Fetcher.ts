@@ -78,3 +78,18 @@ export class Fetcher {
   }
 
   private static sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new Error('Aborted'));
+        return;
+      }
+      const timeout = setTimeout(resolve, ms);
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          clearTimeout(timeout);
+          reject(new Error('Aborted'));
+        }, { once: true });
+      }
+    });
+  }
+}
