@@ -354,3 +354,92 @@ export default function BrowserScreen({
             meta.name = 'color-scheme';
             if (document.head) {
               document.head.appendChild(meta);
+            }
+          }
+          if (meta) {
+            meta.content = mode;
+          }
+
+          if (document.documentElement) {
+            document.documentElement.style.colorScheme = mode;
+          }
+        } catch(e) {}
+      })();
+    `;
+
+    const pagePreviewScript = `
+      (function() {
+        function extractPageMetadata() {
+          try {
+            var ogImg = document.querySelector('meta[property="og:image"]');
+            var twImg = document.querySelector('meta[name="twitter:image"]');
+            var imgUrl = (ogImg && ogImg.content) || (twImg && twImg.content) || '';
+
+            if (!imgUrl) {
+              var imgs = document.querySelectorAll('main img, article img, img');
+              for (var i = 0; i < imgs.length && i < 15; i++) {
+                var img = imgs[i];
+                if (img.naturalWidth > 120 && img.naturalHeight > 80 && img.src && img.src.indexOf('data:') !== 0 && img.src.indexOf('blob:') !== 0) {
+                  imgUrl = img.src;
+                  break;
+                }
+              }
+            }
+
+            var descMeta = document.querySelector('meta[name="description"]') || document.querySelector('meta[property="og:description"]');
+            var desc = descMeta ? descMeta.content : '';
+
+            if (window.ReactNativeWebView && (imgUrl || desc)) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'pb_page_metadata',
+                data: {
+                  previewImage: imgUrl,
+                  description: desc,
+                }
+              }));
+            }
+          } catch(e) {}
+        }
+
+        if (document.readyState === 'complete') {
+          setTimeout(extractPageMetadata, 800);
+        } else {
+          window.addEventListener('load', function() {
+            setTimeout(extractPageMetadata, 800);
+          });
+        }
+      })();
+    `;
+
+    const mediaAndVoiceScript = `
+      (function() {
+        try {
+          // Auto-trigger search engine voice search when navigated with pb_voice or source=voice
+          var href = window.location.href || '';
+          if (href.indexOf('pb_voice=1') !== -1 || href.indexOf('source=voice') !== -1) {
+            function triggerSearchEngineVoice() {
+              var micSelectors = [
+                '[aria-label*="voice" i]',
+                '[aria-label*="Voice" i]',
+                '[jsname="bVqjv"]',
+                'div[jscontroller] [role="button"][aria-label*="voice" i]',
+                '#sb_mic',
+                'button[id*="voice" i]',
+                'button[class*="voice" i]'
+              ];
+              for (var i = 0; i < micSelectors.length; i++) {
+                var btn = document.querySelector(micSelectors[i]);
+                if (btn) {
+                  btn.click();
+                  return true;
+                }
+              }
+              return false;
+            }
+
+            if (!triggerSearchEngineVoice()) {
+              var attempts = 0;
+              var pollInterval = setInterval(function() {
+                attempts++;
+                if (triggerSearchEngineVoice() || attempts > 15) {
+                  clearInterval(pollInterval);
