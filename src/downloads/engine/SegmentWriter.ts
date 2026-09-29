@@ -56,3 +56,21 @@ export class SegmentWriter {
 
     for (let i = 0; i < mainLength; i += 3) {
       const chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+      base64 +=
+        chars[(chunk >> 18) & 63] +
+        chars[(chunk >> 12) & 63] +
+        chars[(chunk >> 6) & 63] +
+        chars[chunk & 63];
+    }
+
+    if (remainder === 1) {
+      const chunk = bytes[mainLength];
+      base64 += chars[(chunk >> 2) & 63] + chars[(chunk << 4) & 63] + '==';
+    } else if (remainder === 2) {
+      const chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1];
+      base64 += chars[(chunk >> 10) & 63] + chars[(chunk >> 4) & 63] + chars[(chunk << 2) & 63] + '=';
+    }
+
+    return base64;
+  }
+}
