@@ -659,3 +659,169 @@ export class DownloadManager {
         item.fileUri = result.uri;
         item.statusText = 'Completed';
         this.notify();
+
+        // Update database
+        await db.saveDownload({
+          id: downloadId,
+          video_id: item.videoId,
+          state: 'completed',
+          bytes_done: item.bytesDone || item.totalBytes,
+          segments_done: 1,
+          segments_total: 1,
+          temp_name: '',
+          file_uri: result.uri,
+          final_name: this.cleanFileName(item.title, fileExtension),
+          completed_at: Date.now(),
+          started_at: item.startTime,
+        });
+
+        if (result.uri) {
+          DownloadManager.generateAndSaveThumbnail(item.videoId, result.uri).then((thumb) => {
+            if (thumb) item.thumbnail = thumb;
+          });
+        }
+
+        if (this.autoRemoveDetails) {
+          await db.removeVideoDetailsOnly(item.videoId);
+        }
+      } else {
+        throw new Error('Download returned no result');
+      }
+    } catch (e: any) {
+      const cur = this.activeDownloads.get(downloadId);
+      if (cur && cur.state !== 'paused' && cur.state !== 'canceled') {
+        cur.state = 'failed';
+        cur.error = e?.message || 'Download failed';
+        cur.statusText = 'Failed';
+        this.notify();
+
+        await db.saveDownload({
+          id: downloadId,
+          video_id: item.videoId,
+          state: 'failed',
+          bytes_done: cur.bytesDone,
+          segments_done: 0,
+          segments_total: 1,
+          temp_name: '',
+          file_uri: destinationUri,
+          final_name: this.cleanFileName(item.title, fileExtension),
+          error: cur.error,
+          started_at: item.startTime,
+        });
+      }
+    }
+  }
+
+  /**
+   * Fallback download using manual fetch() + chunked write when createDownloadResumable fails.
+   */
+  private static async executeFetchFallbackDownload(
+    downloadId: string,
+    mediaUrl: string,
+    destinationUri: string,
+    item: ActiveDownloadItem,
+    headers: Record<string, string>
+  ): Promise<FileSystem.FileSystemDownloadResult | undefined> {
+    const resp = await Fetcher.fetchWithRetry(mediaUrl, { headers });
+
+    const contentLength = resp.headers.get('content-length');
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : item.totalBytes;
+    if (totalBytes > 0) {
+      item.totalBytes = totalBytes;
+    }
+
+    try {
+      await FileSystem.deleteAsync(destinationUri, { idempotent: true });
+    } catch {}
+
+    const buffer = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const CHUNK_SIZE = 512 * 1024; // 512 KB chunks
+
+    let lastProgressTime = Date.now();
+    let lastBytesWritten = 0;
+    let smoothedSpeed = 0;
+
+    for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
+      const cur = this.activeDownloads.get(downloadId);
+      if (!cur || cur.state === 'failed' || cur.state === 'canceled') break;
+
+      const chunk = bytes.subarray(offset, Math.min(bytes.length, offset + CHUNK_SIZE));
+      await SegmentWriter.writeSegment(destinationUri, chunk, offset > 0);
+
+      const done = Math.min(bytes.length, offset + chunk.byteLength);
+      const now = Date.now();
+      const timeDelta = (now - lastProgressTime) / 1000;
+      if (timeDelta >= 0.2) {
+        const bytesDelta = Math.max(0, done - lastBytesWritten);
+        const instantSpeed = bytesDelta / timeDelta;
+        smoothedSpeed = smoothedSpeed === 0 ? instantSpeed : smoothedSpeed * 0.25 + instantSpeed * 0.75;
+        lastProgressTime = now;
+        lastBytesWritten = done;
+      }
+
+      cur.bytesDone = done;
+      cur.progress = bytes.length > 0 ? done / bytes.length : 1.0;
+      cur.speedBytesPerSec = smoothedSpeed;
+      cur.speedText = DownloadManager.formatSpeed(smoothedSpeed);
+      cur.statusText = `${(done / (1024 * 1024)).toFixed(1)} of ${(bytes.length / (1024 * 1024)).toFixed(1)} MB`;
+      this.notify();
+    }
+
+    item.bytesDone = buffer.byteLength;
+    item.totalBytes = buffer.byteLength;
+    item.progress = 1.0;
+    this.notify();
+
+    return {
+      uri: destinationUri,
+      status: 200,
+      headers: {},
+      mimeType: resp.headers.get('content-type') || 'video/mp4',
+      md5: undefined,
+    } as FileSystem.FileSystemDownloadResult;
+  }
+
+  /**
+   * Pause an in-progress download (DL-2)
+   */
+  public static async pauseDownload(id: string): Promise<void> {
+    const item = this.activeDownloads.get(id);
+    const resumable = this.downloadResumables.get(id);
+    if (!item) return;
+
+    item.state = 'paused';
+    item.speedBytesPerSec = 0;
+    item.speedText = 'Paused';
+    item.etaText = 'Paused';
+    this.notify();
+
+    if (resumable) {
+      try {
+        await resumable.pauseAsync();
+      } catch {}
+    }
+  }
+
+  /**
+   * Resume a paused download (DL-2)
+   */
+  public static async resumeDownload(id: string): Promise<void> {
+    const item = this.activeDownloads.get(id);
+    const resumable = this.downloadResumables.get(id);
+    if (!item) return;
+
+    item.state = 'downloading';
+    item.speedText = 'Resuming...';
+    item.etaText = 'Calculating...';
+    this.notify();
+
+    if (resumable) {
+      try {
+        await resumable.resumeAsync();
+      } catch {}
+    }
+  }
+
+  /**
+   * Cancel an active or queued download
