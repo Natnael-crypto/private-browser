@@ -494,3 +494,168 @@ export class DownloadManager {
             // Sequentially flush ready chunks to disk without Base64 bottleneck
             while (readyChunks.has(nextWriteIndex)) {
               const toWrite = readyChunks.get(nextWriteIndex)!;
+              readyChunks.delete(nextWriteIndex);
+              await SegmentWriter.writeSegment(destinationUri, toWrite, !isFirstWrite);
+              isFirstWrite = false;
+              nextWriteIndex++;
+            }
+
+            // Update sliding-window SpeedMeter and UI
+            speedMeter.recordBytes(bytesTotalAccum);
+            const progress = speedMeter.getProgress(nextWriteIndex, segments.length);
+
+            if (speedMeter.shouldEmit()) {
+              item.bytesDone = bytesTotalAccum;
+              item.progress = nextWriteIndex / segments.length;
+              item.speedBytesPerSec = progress.speedBytesPerSec;
+              item.speedText = progress.speedFormatted;
+              item.etaText = progress.etaFormatted;
+              const mb = (bytesTotalAccum / (1024 * 1024)).toFixed(1);
+              item.statusText = `${mb} MB · Seg ${nextWriteIndex}/${segments.length}`;
+              DownloadManager.notify();
+            }
+
+            return { index: segIndex, buffer: segData };
+          },
+        });
+      }
+
+      await pool.run();
+
+      // Final completion
+      item.progress = 1.0;
+      item.state = 'completed';
+      item.fileUri = destinationUri;
+      item.statusText = 'Completed';
+      item.speedBytesPerSec = 0;
+      item.speedText = '';
+      item.etaText = '';
+      this.notify();
+
+      await db.saveDownload({
+        id: downloadId,
+        video_id: item.videoId,
+        state: 'completed',
+        bytes_done: bytesTotalAccum,
+        segments_done: segments.length,
+        segments_total: segments.length,
+        temp_name: '',
+        file_uri: destinationUri,
+        final_name: this.cleanFileName(item.title, 'ts'),
+        completed_at: Date.now(),
+        started_at: item.startTime,
+      });
+
+      if (destinationUri) {
+        DownloadManager.generateAndSaveThumbnail(item.videoId, destinationUri).then((thumb) => {
+          if (thumb) item.thumbnail = thumb;
+        });
+      }
+
+      if (this.autoRemoveDetails) {
+        await db.removeVideoDetailsOnly(item.videoId);
+      }
+    } catch (e: any) {
+      const cur = this.activeDownloads.get(downloadId);
+      if (cur && cur.state !== 'paused' && cur.state !== 'canceled') {
+        cur.state = 'failed';
+        cur.error = e?.message || 'HLS download failed';
+        cur.statusText = 'Failed';
+        this.notify();
+
+        await db.saveDownload({
+          id: downloadId,
+          video_id: item.videoId,
+          state: 'failed',
+          bytes_done: cur.bytesDone,
+          segments_done: 0,
+          segments_total: 0,
+          temp_name: '',
+          file_uri: destinationUri,
+          final_name: this.cleanFileName(item.title, 'ts'),
+          error: cur.error,
+          started_at: item.startTime,
+        });
+      }
+    } finally {
+      this.activeAbortControllers.delete(downloadId);
+    }
+  }
+
+  private static async executeDirectDownload(
+    downloadId: string,
+    mediaUrl: string,
+    destinationUri: string,
+    item: ActiveDownloadItem
+  ): Promise<void> {
+    // Build proper headers with Referer/Origin matching the source page and cookies.
+    const dlHeaders = this.buildDownloadHeaders(item.sourcePageUrl, item.videoItem);
+    const fileExtension = item.format.toLowerCase() === 'webm' ? 'webm' : 'mp4';
+
+    try {
+      const speedMeter = new SpeedMeter(item.totalBytes > 0 ? item.totalBytes : undefined);
+
+      const progressCallback = (p: FileSystem.DownloadProgressData) => {
+        const curItem = this.activeDownloads.get(downloadId);
+        if (!curItem || curItem.state === 'paused') return;
+
+        const bytesDone = p.totalBytesWritten;
+        const total = p.totalBytesExpectedToWrite > 0 ? p.totalBytesExpectedToWrite : curItem.totalBytes;
+        const progress = Math.min(1.0, Math.max(0.01, total > 0 ? bytesDone / total : 0.05));
+
+        speedMeter.recordBytes(bytesDone);
+        const spProg = speedMeter.getProgress(1, 1);
+
+        if (speedMeter.shouldEmit()) {
+          const doneMb = (bytesDone / (1024 * 1024)).toFixed(1);
+          const totalMb = total > 0 ? (total / (1024 * 1024)).toFixed(1) : '?';
+
+          curItem.bytesDone = bytesDone;
+          curItem.totalBytes = total;
+          curItem.progress = progress;
+          curItem.speedBytesPerSec = spProg.speedBytesPerSec;
+          curItem.speedText = spProg.speedFormatted;
+          curItem.etaText = spProg.etaFormatted;
+          curItem.statusText = total > 0 ? `${doneMb} of ${totalMb} MB` : `${doneMb} MB`;
+          this.notify();
+        }
+      };
+
+      let result: FileSystem.FileSystemDownloadResult | undefined;
+
+      try {
+        const resumable = FileSystem.createDownloadResumable(
+          mediaUrl,
+          destinationUri,
+          {
+            headers: dlHeaders,
+          },
+          progressCallback
+        );
+        this.downloadResumables.set(downloadId, resumable);
+        result = await resumable.downloadAsync();
+
+        // Check if download failed on server side (e.g. 403 Forbidden, 404, etc.)
+        if (result && result.status >= 400) {
+          console.warn(`DownloadResumable returned HTTP ${result.status}, falling back to fetch stream...`);
+          try {
+            await FileSystem.deleteAsync(destinationUri, { idempotent: true });
+          } catch {}
+          result = await this.executeFetchFallbackDownload(
+            downloadId, mediaUrl, destinationUri, item, dlHeaders
+          );
+        }
+      } catch (resumableError: any) {
+        console.warn('DownloadResumable failed, falling back to fetch stream:', resumableError?.message);
+        result = await this.executeFetchFallbackDownload(
+          downloadId, mediaUrl, destinationUri, item, dlHeaders
+        );
+      }
+
+      if (result && result.uri) {
+        // Download completed!
+        item.progress = 1.0;
+        item.state = 'completed';
+        item.fileUri = result.uri;
+        item.statusText = 'Completed';
+        this.notify();
