@@ -112,3 +112,22 @@ export class SpeedMeter {
       formattedSpeedMbps: `${speedMbps} Mbps`,
       etaSeconds,
       formattedEta: SpeedMeter.formatEta(etaSeconds),
+      etaFormatted: SpeedMeter.formatEta(etaSeconds),
+      percent,
+      segmentsDone,
+      segmentsTotal,
+    };
+  }
+
+  /**
+   * Check if progress update should be emitted based on throttle interval
+   */
+  public shouldEmit(now = Date.now()): boolean {
+    if (now - this.lastEmitTime >= this.emitIntervalMs) {
+      this.lastEmitTime = now;
+      return true;
+    }
+    return false;
+  }
+
+  public static formatSpeed(bytesPerSec: number): string {
