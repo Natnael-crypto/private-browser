@@ -141,3 +141,144 @@ export class DownloadQueue {
    * Update progress for a job
    */
   public static updateProgress(
+    id: string,
+    bytesDone: number,
+    segmentsDone?: number
+  ): SpeedProgress | null {
+    const job = this.jobs.get(id);
+    if (!job) return null;
+
+    job.bytesDone = bytesDone;
+    if (segmentsDone !== undefined) {
+      job.segmentsDone = segmentsDone;
+    }
+
+    job.speedMeter.recordBytes(bytesDone);
+    const progress = job.speedMeter.getProgress(job.segmentsDone, job.segmentsTotal);
+
+    if (job.speedMeter.shouldEmit()) {
+      this.notify();
+      // Periodically sync progress to DB
+      db.updateDownloadProgress(id, bytesDone, job.segmentsDone, job.segmentsTotal).catch(() => {});
+    }
+
+    return progress;
+  }
+
+  /**
+   * Set state of a job
+   */
+  public static async setJobState(
+    id: string,
+    state: JobState,
+    meta?: { error?: string; fileUri?: string }
+  ): Promise<void> {
+    const job = this.jobs.get(id);
+    if (!job) return;
+
+    job.state = state;
+    if (meta?.error) job.error = meta.error;
+    if (meta?.fileUri) job.finalFileUri = meta.fileUri;
+    if (state === 'completed') job.completedAt = Date.now();
+
+    await db.setDownloadState(
+      id,
+      state as any,
+      job.bytesDone,
+      meta?.fileUri,
+      meta?.error,
+      job.completedAt
+    );
+
+    this.notify();
+    this.processNext();
+  }
+
+  /**
+   * Pause a job
+   */
+  public static async pauseJob(id: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (!job) return;
+
+    if (job.state === 'downloading' || job.state === 'queued' || job.state === 'preparing') {
+      job.abortController.abort();
+      await this.setJobState(id, 'paused');
+    }
+  }
+
+  /**
+   * Resume a paused job
+   */
+  public static async resumeJob(id: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (!job || job.state !== 'paused') return;
+
+    job.abortController = new AbortController();
+    await this.setJobState(id, 'queued');
+  }
+
+  /**
+   * Cancel a job
+   */
+  public static async cancelJob(id: string): Promise<void> {
+    const job = this.jobs.get(id);
+    if (!job) return;
+
+    job.abortController.abort();
+    await this.setJobState(id, 'canceled');
+  }
+
+  /**
+   * Process next queued job if under max concurrency
+   */
+  public static async processNext(): Promise<void> {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+
+    try {
+      const activeCount = this.getActiveJobs().length;
+      if (activeCount >= this.maxConcurrentJobs) return;
+
+      const queuedJobs = Array.from(this.jobs.values()).filter((j) => j.state === 'queued');
+      if (queuedJobs.length === 0) return;
+
+      // Check Wi-Fi restriction before launching
+      const net = await this.isNetworkAllowed();
+      if (!net.allowed) {
+        for (const q of queuedJobs) {
+          q.error = net.reason;
+        }
+        this.notify();
+        return;
+      }
+
+      const availableSlots = this.maxConcurrentJobs - activeCount;
+      const jobsToStart = queuedJobs.slice(0, availableSlots);
+
+      for (const job of jobsToStart) {
+        // Trigger download execution via registered runner
+        if (DownloadQueue.jobRunner) {
+          job.state = 'preparing';
+          this.notify();
+          DownloadQueue.jobRunner(job).catch(async (err: any) => {
+            await this.setJobState(job.id, 'failed', { error: err?.message || 'Download failed' });
+          });
+        }
+      }
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  public static jobRunner?: (job: DownloadJob) => Promise<void>;
+
+  private static notify(): void {
+    const list = Array.from(this.jobs.values());
+    this.listeners.forEach((listener) => {
+      try {
+        listener(list);
+      } catch {}
+    });
+  }
+}
