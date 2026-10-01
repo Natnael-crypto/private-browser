@@ -76,3 +76,41 @@ test('VimeoExtractor: correctly extracts progressive MP4s and HLS playlists', ()
         progressive: [
           { quality: '1080p', url: 'https://vimeo.com/1080p.mp4', height: 1080 },
           { quality: '720p', url: 'https://vimeo.com/720p.mp4', height: 720 },
+        ],
+        hls: {
+          cdns: {
+            fastly: { url: 'https://vimeo.com/fastly.m3u8' },
+          },
+        },
+      },
+    },
+  };
+
+  const items = VimeoExtractor.parseConfig(sampleConfig);
+  assert.equal(items.length, 3);
+  assert.equal(items[0].format, 'MP4');
+  assert.equal(items[0].resolution, '1080p');
+  assert.equal(items[0].thumbnail, 'https://vimeo.com/thumb1280.jpg');
+  assert.equal(items[2].format, 'HLS');
+});
+
+test('FacebookExtractor: extracts HD/SD streams and DASH manifests', () => {
+  const sampleHtml = `
+    <html>
+      <script>
+        var player_data = {
+          "playable_url_quality_hd": "https:\\/\\/video.xx.fbcdn.net\\/v\\/hd.mp4",
+          "playable_url": "https:\\/\\/video.xx.fbcdn.net\\/v\\/sd.mp4",
+          "video_dash_manifest": "<MPD><Period></Period></MPD>"
+        };
+      </script>
+    </html>
+  `;
+
+  const items = FacebookExtractor.parseHtml(sampleHtml, 'https://facebook.com/watch');
+  assert.equal(items.length, 3);
+  assert.equal(items[0].format, 'MP4');
+  assert.equal(items[0].resolution, '1080p');
+  assert.equal(items[1].resolution, '720p');
+  assert.equal(items[2].format, 'DASH');
+});
