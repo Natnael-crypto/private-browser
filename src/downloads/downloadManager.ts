@@ -825,3 +825,167 @@ export class DownloadManager {
 
   /**
    * Cancel an active or queued download
+   */
+  public static async cancelDownload(id: string): Promise<void> {
+    const item = this.activeDownloads.get(id);
+    const resumable = this.downloadResumables.get(id);
+    if (!item) return;
+
+    item.state = 'canceled';
+    if (resumable) {
+      try {
+        await resumable.pauseAsync();
+      } catch {}
+    }
+    this.activeDownloads.delete(id);
+    this.downloadResumables.delete(id);
+    this.notify();
+
+    if (item.fileUri) {
+      try {
+        await FileSystem.deleteAsync(item.fileUri, { idempotent: true });
+      } catch {}
+    }
+    await db.deleteDownload(id);
+  }
+
+  /**
+   * Share / Export or Open file in external system player (Phase 7)
+   */
+  public static async shareOrPlayVideo(fileUri: string): Promise<void> {
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'video/mp4' });
+      }
+    } catch (e) {
+      console.warn('Share not available:', e);
+    }
+  }
+
+  /**
+   * Move / export downloaded video to phone's default Downloads folder (or Files on iOS)
+   */
+  public static async moveToPhoneDownloads(
+    fileUri: string,
+    title: string
+  ): Promise<{ success: boolean; message: string }> {
+    const fileName = this.cleanFileName(title, 'mp4');
+
+    if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+      try {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (permissions.granted) {
+          const directoryUri = permissions.directoryUri;
+          const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            directoryUri,
+            fileName,
+            'video/mp4'
+          );
+          const base64Content = await FileSystem.readAsStringAsync(fileUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await FileSystem.writeAsStringAsync(newFileUri, base64Content, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          return {
+            success: true,
+            message: 'Video successfully saved to your device Downloads folder!',
+          };
+        } else {
+          return { success: false, message: 'Folder permission was not granted.' };
+        }
+      } catch (err: any) {
+        console.warn('StorageAccessFramework error, falling back to share sheet:', err);
+      }
+    }
+
+    // iOS and fallback: Open system share sheet with "Save to Files"
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          UTI: 'public.movie',
+          mimeType: 'video/mp4',
+          dialogTitle: 'Save Video to Device Downloads',
+        });
+        return {
+          success: true,
+          message: 'Opened save sheet. Tap "Save to Files" to place in Downloads.',
+        };
+      } else {
+        return { success: false, message: 'Saving is not available on this device.' };
+      }
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Failed to save video.' };
+    }
+  }
+
+  /**
+   * SEC-5: Remove video details only (keeps file on disk, wipes database records)
+   */
+  public static async removeVideoDetailsOnly(videoId: string): Promise<void> {
+    await db.removeVideoDetailsOnly(videoId);
+    this.notify();
+  }
+
+  /**
+   * SEC-5: Delete file AND details
+   */
+  public static async deleteFileAndDetails(downloadId: string, videoId: string, fileUri?: string): Promise<void> {
+    if (fileUri) {
+      try {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      } catch {}
+    }
+    await db.removeVideoDetailsOnly(videoId);
+    this.activeDownloads.delete(downloadId);
+    this.notify();
+  }
+
+  /**
+   * DL-9: Clean filename - strips illegal chars and limits length
+   */
+  public static cleanFileName(title: string, extension: string): string {
+    const cleaned = title
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 80);
+    return `${cleaned || 'video'}.${extension}`;
+  }
+
+  /**
+   * Generate video thumbnail from local file URI and persist in database
+   */
+  public static async generateAndSaveThumbnail(videoId: string, fileUri: string): Promise<string | null> {
+    try {
+      const thumb = await VideoThumbnails.getThumbnailAsync(fileUri, {
+        time: 1000,
+        quality: 0.8,
+      });
+      if (thumb?.uri) {
+        await db.updateVideoThumbnail(videoId, thumb.uri);
+        this.notify();
+        return thumb.uri;
+      }
+    } catch {
+      try {
+        const thumb = await VideoThumbnails.getThumbnailAsync(fileUri, {
+          time: 0,
+          quality: 0.8,
+        });
+        if (thumb?.uri) {
+          await db.updateVideoThumbnail(videoId, thumb.uri);
+          this.notify();
+          return thumb.uri;
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  private static notify(): void {
+    this.listeners.forEach((l) => l());
+  }
+}
