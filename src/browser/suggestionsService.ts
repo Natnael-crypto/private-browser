@@ -73,3 +73,11 @@ export class SuggestionsService {
         const results = data.map((d: any) => d.phrase).filter(Boolean).slice(0, 7);
         this.cache.set(cacheKey, results);
         return results;
+      }
+
+      return [];
+    } catch {
+      return [];
+    }
+  }
+}
