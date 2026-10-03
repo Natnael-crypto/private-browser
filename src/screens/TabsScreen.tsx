@@ -291,3 +291,295 @@ function renderWebDocumentPreview(
         </View>
 
         <T numberOfLines={2} style={{ fontSize: 9.5, fontFamily: F.s, color: theme.text, lineHeight: 13, marginBottom: 4 }}>
+          {t.title || domain}
+        </T>
+
+        {t.description ? (
+          <T numberOfLines={3} style={{ fontSize: 7.5, fontFamily: F.r, color: theme.sec, lineHeight: 10, marginBottom: 5 }}>
+            {t.description}
+          </T>
+        ) : null}
+
+        <View style={{ gap: 3.5, marginBottom: 5 }}>
+          <View style={[s.mockTextLine, { width: '100%', backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea' }]} />
+          <View style={[s.mockTextLine, { width: '92%', backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea' }]} />
+          <View style={[s.mockTextLine, { width: '78%', backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea' }]} />
+        </View>
+
+        <View style={{ borderLeftWidth: 2, borderLeftColor: theme.blue, paddingLeft: 5, paddingVertical: 1.5, marginVertical: 3, backgroundColor: isDark ? '#242426' : '#f8f8fc', borderRadius: 2 }}>
+          <View style={[s.mockTextLine, { width: '85%', height: 4, backgroundColor: isDark ? '#48484a' : '#d1d1d6' }]} />
+          <View style={[s.mockTextLine, { width: '55%', height: 4, marginTop: 2.5, backgroundColor: isDark ? '#48484a' : '#d1d1d6' }]} />
+        </View>
+
+        <View style={{ gap: 3.5, marginTop: 3 }}>
+          <View style={[s.mockTextLine, { width: '95%', backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea' }]} />
+          <View style={[s.mockTextLine, { width: '68%', backgroundColor: isDark ? '#3a3a3c' : '#e5e5ea' }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function renderTabPreview(t: BrowserTab, theme: AppleTheme, currentEngine: SearchEngine) {
+  if (t.isBlank || !t.url || t.url === 'about:blank') {
+    return renderBlankTabPreview(theme, currentEngine);
+  }
+
+  const searchEngine = getSearchEngineFromUrl(t.url);
+  if (searchEngine) {
+    return renderSearchEnginePreview(t.url, searchEngine, t.title, theme);
+  }
+
+  const domain = getDomain(t.url);
+  if (t.previewImage) {
+    return renderWebPreviewWithImage(t, domain, theme);
+  }
+
+  return renderWebDocumentPreview(t, domain, theme);
+}
+
+export default function TabsScreen({ onDone, onOpenSettings, onOpenDownloads }: TabsScreenProps) {
+  const ok = useHanken();
+  const theme = useTheme();
+  const { tabs, activeTabId, createTab, closeTab, setActiveTab, searchEngine } = useBrowserStore();
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onDone();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onDone]);
+
+  function handleSelectTab(t: BrowserTab) {
+    setActiveTab(t.id);
+    onDone();
+  }
+
+  function handleNewTab() {
+    createTab();
+    onDone();
+  }
+
+  if (!ok) return null;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.grouped }}>
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
+      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={s.grid}>
+          {tabs.map((t) => {
+            const isActive = t.id === activeTabId;
+            const domain = getDomain(t.url);
+            const tabEngine = getSearchEngineFromUrl(t.url);
+            const isBlankTab = t.isBlank || !t.url || t.url === 'about:blank';
+            const displayTitle = isBlankTab
+              ? 'New Tab'
+              : (t.title && t.title !== 'about:blank' ? t.title : (domain || 'Web Page'));
+
+            return (
+              <Pressable
+                key={t.id}
+                style={[
+                  s.card,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: isActive ? theme.blue : (theme.isDark ? '#3a3a3c' : 'rgba(60,60,67,0.18)'),
+                  },
+                ]}
+                onPress={() => handleSelectTab(t)}
+              >
+                <View style={[s.cardHead, { backgroundColor: theme.isDark ? '#2c2c2e' : '#e5e5ea', borderBottomColor: theme.sep, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 6 }}>
+                    {isBlankTab ? (
+                      <View style={{ marginRight: 5 }}>
+                        <Ic n="plus" c={theme.sec} s={12} w={2.2} />
+                      </View>
+                    ) : tabEngine ? (
+                      <View style={{ marginRight: 5 }}>
+                        <SearchEngineIcon engine={tabEngine} size={13} />
+                      </View>
+                    ) : (
+                      <View style={{ marginRight: 5 }}>
+                        <Ic n="lock" c={theme.sec} s={11} w={2} />
+                      </View>
+                    )}
+                    <T numberOfLines={1} style={{ fontSize: 12, fontFamily: F.m, flex: 1, color: theme.text }}>
+                      {displayTitle}
+                    </T>
+                  </View>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      closeTab(t.id);
+                    }}
+                    style={{ paddingLeft: 6 }}
+                  >
+                    <T style={{ fontSize: 18, color: theme.sec, fontFamily: F.m, lineHeight: 20 }}>×</T>
+                  </Pressable>
+                </View>
+
+                <View style={s.cardBody}>
+                  {renderTabPreview(t, theme, searchEngine)}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      {/* Bottom Control Bar */}
+      <View style={[s.bottom, { backgroundColor: theme.card, borderTopColor: theme.sep }]}>
+        <Pressable accessibilityLabel="New tab" style={s.hit} onPress={handleNewTab}>
+          <Ic n="plus" c={theme.blue} s={24} />
+        </Pressable>
+        <Pressable accessibilityLabel="Settings" style={s.hit} onPress={onOpenSettings}>
+          <Ic n="gear" c={theme.blue} s={22} />
+        </Pressable>
+        <View style={s.hit}>
+          <T style={{ color: theme.text, fontSize: 15, fontFamily: F.s }}>
+            {tabs.length} {tabs.length === 1 ? 'Tab' : 'Tabs'}
+          </T>
+        </View>
+        <Pressable accessibilityLabel="Downloads" style={s.hit} onPress={onOpenDownloads}>
+          <Ic n="dl" c={theme.blue} s={22} />
+        </Pressable>
+        <Pressable style={s.hit} onPress={onDone}>
+          <T style={{ color: theme.blue, fontFamily: F.s, fontSize: 16 }}>Done</T>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  scrollContent: {
+    paddingTop: 68,
+    paddingBottom: 140,
+    alignItems: 'center',
+  },
+  grid: {
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  card: {
+    width: 167,
+    height: 236,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cardHead: {
+    height: 34,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardBody: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  previewFill: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  blankPreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  miniBrandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 4,
+  },
+  miniBrandText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontFamily: F.s,
+    letterSpacing: 0.5,
+  },
+  miniSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
+    width: '100%',
+  },
+  miniSearchPlaceholder: {
+    fontSize: 8.5,
+    fontFamily: F.r,
+    marginLeft: 5,
+    flex: 1,
+  },
+  miniShortcutsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  miniShortcutItem: {
+    alignItems: 'center',
+  },
+  miniShortcutCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  miniShortcutLabel: {
+    fontSize: 6.5,
+    fontFamily: F.m,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  miniSiteBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 3.5,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  mockTextLine: {
+    height: 4.5,
+    borderRadius: 2,
+  },
+  bottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 48,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  hit: {
+    height: 44,
+    justifyContent: 'center',
+  },
+});
+
