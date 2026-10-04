@@ -93,3 +93,96 @@ export default function BookmarksModal({
                   <Pressable
                     onPress={() => handleDeleteBookmark(b.id)}
                     hitSlop={8}
+                    style={{ padding: 4 }}
+                  >
+                    <Ic n="trash" c={theme.red} s={18} />
+                  </Pressable>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 9999,
+  },
+  dim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+  },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: 520,
+    backgroundColor: C.grouped,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'android' ? 55 : 32,
+  },
+  grabber: {
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.gray,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  head: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: 36,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: 16,
+    marginTop: 12,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  grp: {
+    marginHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    minHeight: 54,
+    gap: 12,
+  },
+  rowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.sep,
+  },
+  sub: {
+    fontSize: 12,
+    color: C.sec,
+    marginTop: 2,
+  },
+});
