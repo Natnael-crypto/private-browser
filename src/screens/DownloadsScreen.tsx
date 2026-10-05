@@ -518,3 +518,522 @@ export default function DownloadsScreen({ onDone, onOpenSourcePage }: DownloadsS
                       </Pressable>
                     </View>
                   </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* Saved section */}
+        <T style={[s.hd, { color: theme.sec }]}>Saved</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          {filteredSaved.length === 0 ? (
+            <View style={[s.row, { justifyContent: 'center' }]}>
+              <T style={{ color: theme.sec, fontSize: 15 }}>No saved videos yet</T>
+            </View>
+          ) : (
+            filteredSaved.map((v, i) => (
+              <View key={v.id} style={[s.row, i > 0 && rowBorder]}>
+                <Pressable
+                  onPress={() => setPlayingVideo(v)}
+                  accessibilityLabel={`Play ${v.title}`}
+                >
+                  <VideoThumbnailView
+                    thumbnailUri={v.thumbnail}
+                    fileUri={v.fileUri}
+                    videoId={v.videoId}
+                    title={v.title}
+                    theme={theme}
+                    format={v.format || v.meta.split('·')[0].trim() || 'MP4'}
+                    resolution={v.resolution || v.meta.split('·')[0].trim()}
+                  />
+                </Pressable>
+
+                <Pressable
+                  style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}
+                  onPress={() => setPlayingVideo(v)}
+                  accessibilityLabel={`Play ${v.title}`}
+                >
+                  <T numberOfLines={1} style={{ fontSize: 15, fontFamily: F.s, color: theme.text }}>
+                    {v.title}
+                  </T>
+                  <T style={[s.sub, { color: theme.sec }]}>{v.meta}</T>
+                  {v.sourcePageUrl ? (
+                    <Pressable
+                      style={s.link}
+                      accessibilityLabel={`Open source page ${v.source}`}
+                      onPress={() => onOpenSourcePage(v.sourcePageUrl)}
+                    >
+                      <T style={{ fontSize: 13, color: theme.blue, fontFamily: F.m }}>{v.source}</T>
+                      <Ic n="ch" c={theme.blue} s={14} w={2.4} />
+                    </Pressable>
+                  ) : null}
+                </Pressable>
+
+                {/* Save to Phone Downloads Button */}
+                <Pressable
+                  style={s.saveRowBtn}
+                  onPress={() => handleSaveToPhone(v)}
+                  accessibilityLabel="Save to device downloads"
+                  hitSlop={10}
+                >
+                  <Ic n="dl" c={theme.blue} s={20} w={2.2} />
+                </Pressable>
+
+                {/* Options ⋯ button */}
+                <Pressable
+                  style={{ padding: 6 }}
+                  onPress={() => setSelectedVideoForOptions(v)}
+                  accessibilityLabel="Options"
+                >
+                  <T style={{ color: theme.sec, fontSize: 18 }}>⋯</T>
+                </Pressable>
+              </View>
+            ))
+          )}
+        </View>
+
+        {filteredSaved.length > 0 && (
+          <View style={[s.grp, { backgroundColor: theme.card }]}>
+            <Pressable
+              style={s.danger}
+              onPress={() => setClearMetadataConfirmVisible(true)}
+            >
+              <T style={{ color: theme.red, fontFamily: F.m }}>Remove video details…</T>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Comprehensive Video Details Modal */}
+      <VideoDetailsSheet
+        item={selectedVideoForDetails}
+        visible={!!selectedVideoForDetails}
+        onClose={() => setSelectedVideoForDetails(null)}
+        onOpenSourcePage={onOpenSourcePage}
+      />
+
+      {/* In-App Video Player Modal */}
+      <VideoPlayerModal
+        visible={!!playingVideo}
+        fileUri={playingVideo?.fileUri || null}
+        title={playingVideo?.title || 'Video Player'}
+        meta={playingVideo?.meta}
+        onClose={() => setPlayingVideo(null)}
+        onSaveToPhone={() => {
+          if (playingVideo) handleSaveToPhone(playingVideo);
+        }}
+        onShare={() => {
+          if (playingVideo) DownloadManager.shareOrPlayVideo(playingVideo.fileUri);
+        }}
+      />
+
+      {/* Video Options ActionSheet Modal */}
+      <ActionSheetModal
+        visible={!!selectedVideoForOptions}
+        title="Video Options"
+        message={selectedVideoForOptions?.title}
+        options={[
+          {
+            text: 'View Video Details',
+            icon: 'info',
+            onPress: () => {
+              if (selectedVideoForOptions) {
+                const vid = selectedVideoForOptions;
+                setSelectedVideoForOptions(null);
+                setSelectedVideoForDetails(vid);
+              }
+            },
+          },
+          {
+            text: 'Save to Phone Downloads',
+            icon: 'dl',
+            onPress: () => {
+              if (selectedVideoForOptions) handleSaveToPhone(selectedVideoForOptions);
+            },
+          },
+          {
+            text: 'Share Video',
+            icon: 'share',
+            onPress: () => {
+              if (selectedVideoForOptions) DownloadManager.shareOrPlayVideo(selectedVideoForOptions.fileUri);
+            },
+          },
+          {
+            text: 'Remove Details Only',
+            icon: 'trash',
+            onPress: async () => {
+              if (selectedVideoForOptions) {
+                await DownloadManager.removeVideoDetailsOnly(selectedVideoForOptions.videoId);
+                loadData();
+              }
+            },
+          },
+          {
+            text: 'Delete File & Details',
+            icon: 'trash',
+            style: 'destructive',
+            onPress: async () => {
+              if (selectedVideoForOptions) {
+                await DownloadManager.deleteFileAndDetails(
+                  selectedVideoForOptions.id,
+                  selectedVideoForOptions.videoId,
+                  selectedVideoForOptions.fileUri
+                );
+                loadData();
+              }
+            },
+          },
+        ]}
+        onClose={() => setSelectedVideoForOptions(null)}
+      />
+
+      {/* Clear Video Metadata Confirmation Modal */}
+      <ConfirmDialogModal
+        visible={clearMetadataConfirmVisible}
+        title="Clear Video Metadata"
+        message="Remove all video and download records from the encrypted database? Saved files on disk will be preserved."
+        confirmText="Remove All Details"
+        confirmStyle="destructive"
+        onConfirm={async () => {
+          for (const s of savedList) {
+            await DownloadManager.removeVideoDetailsOnly(s.videoId);
+          }
+          loadData();
+        }}
+        onClose={() => setClearMetadataConfirmVisible(false)}
+      />
+
+      {/* Notice / Alert Dialog Modal */}
+      {noticeDialog && (
+        <NoticeDialogModal
+          visible={noticeDialog.visible}
+          title={noticeDialog.title}
+          message={noticeDialog.message}
+          onClose={() => setNoticeDialog(null)}
+        />
+      )}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  top: {
+    paddingTop: 62,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontFamily: F.b,
+    fontSize: 34,
+    lineHeight: 44,
+    letterSpacing: 0.3,
+    marginTop: 6,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  search: {
+    height: 44,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: C.fill,
+    justifyContent: 'center',
+  },
+  inProgressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  speedSummaryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  speedSummaryText: {
+    fontSize: 12,
+    fontFamily: F.b,
+  },
+  hd: {
+    marginHorizontal: 32,
+    marginBottom: 6,
+    fontSize: 13,
+    color: C.sec,
+    fontFamily: F.m,
+  },
+  grp: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 76,
+    paddingHorizontal: 12,
+  },
+  activeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  activeMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: 4,
+    flexWrap: 'wrap',
+  },
+  activeProgressBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 3,
+  },
+  activeActionsColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingLeft: 4,
+  },
+  actionHit: {
+    padding: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  speedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
+  },
+  speedPillText: {
+    fontSize: 11,
+    fontFamily: F.b,
+  },
+  etaText: {
+    fontSize: 11,
+    fontFamily: F.m,
+  },
+  formatBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  thumb: {
+    width: 88,
+    height: 52,
+    borderRadius: 8,
+    backgroundColor: C.thumb,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  thumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbResolutionBadge: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+  },
+  thumbResolutionText: {
+    fontSize: 8,
+    fontFamily: F.b,
+    color: '#ffffff',
+  },
+  playBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2,
+  },
+  posterContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posterBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  posterBadgeText: {
+    fontSize: 9,
+    fontFamily: F.b,
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  sub: {
+    fontSize: 12,
+    color: C.sec,
+  },
+  track: {
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#e5e5ea',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  fillBar: {
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: C.blue,
+  },
+  link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  danger: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveRowBtn: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  grabber: {
+    width: 36,
+    height: 5,
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  detailsModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    justifyContent: 'flex-end',
+  },
+  detailsModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  detailsModalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'android' ? 72 : 36,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 20,
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  detailsHeaderTitle: {
+    fontSize: 18,
+    fontFamily: F.b,
+  },
+  detailsCloseBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  detailsCard: {
+    borderRadius: 12,
+    padding: 12,
+  },
+  detailsVideoTitle: {
+    fontSize: 15,
+    fontFamily: F.s,
+    lineHeight: 20,
+  },
+  detailsSectionTitle: {
+    fontSize: 11,
+    fontFamily: F.b,
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  detailsLabel: {
+    fontSize: 13,
+    fontFamily: F.r,
+  },
+  detailsValue: {
+    fontSize: 13,
+    fontFamily: F.m,
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
+  detailsUrlText: {
+    fontSize: 12,
+    fontFamily: F.r,
+    lineHeight: 16,
+  },
+  openSourceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 4,
+  },
+  pillBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+});
+
