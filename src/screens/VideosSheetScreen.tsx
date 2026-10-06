@@ -197,3 +197,201 @@ export default function VideosSheetScreen({ onClose, onOpenDownloads, currentPag
                         </ScrollView>
                       </View>
                     )}
+
+                    {/* Inline live download progress (Section 6.2) */}
+                    {activeDl && (
+                      <View style={s.inlineProgress}>
+                        <View style={[s.progressBarBg, { backgroundColor: theme.sep }]}>
+                          <View
+                            style={[
+                              s.progressBarFill,
+                              {
+                                width: `${Math.round(activeDl.progress * 100)}%`,
+                                backgroundColor: theme.blue,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <View style={s.inlineMeta}>
+                          <T style={{ fontSize: 11, color: theme.sec }}>
+                            {activeDl.statusText}
+                          </T>
+                          {Boolean(activeDl.speedText) && (
+                            <T style={{ fontSize: 11, color: theme.blue, fontFamily: F.m }}>
+                              {activeDl.speedText}
+                            </T>
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+
+        <T style={[s.sub, { marginTop: 8, marginHorizontal: 32, textAlign: 'center', color: theme.sec }]}>
+          Each download keeps this page’s address, so you can come back to the source later.
+        </T>
+      </View>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 9999,
+  },
+  dim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+  },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    paddingBottom: 34,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  sub: {
+    fontSize: 13,
+  },
+  grp: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  itemWrapper: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  thumb: {
+    width: 60,
+    height: 42,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbImg: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbOverlay: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posterContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posterBadge: {
+    position: 'absolute',
+    top: 2,
+    left: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  posterBadgeText: {
+    fontSize: 9,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  embedPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  qualityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  qualityLabel: {
+    fontSize: 12,
+  },
+  qualityPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  inlineProgress: {
+    marginTop: 8,
+  },
+  progressBarBg: {
+    height: 3,
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+  },
+  inlineMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 3,
+  },
+});
