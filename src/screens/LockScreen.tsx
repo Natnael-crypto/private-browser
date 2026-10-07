@@ -134,3 +134,138 @@ export default function LockScreen({ onUnlocked, onClose }: LockScreenProps) {
             secureTextEntry
             placeholder="Confirm password"
             placeholderTextColor="#8e8e93"
+            accessibilityLabel="Confirm Password"
+            style={[s.input, { marginTop: 12 }]}
+          />
+        )}
+
+        {!!errorMessage && (
+          <T style={[s.errorText, { color: theme.red }]}>{errorMessage}</T>
+        )}
+
+        <Pressable
+          style={[s.unlock, { backgroundColor: theme.blue }, loading && { opacity: 0.7 }]}
+          onPress={handleUnlock}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <T style={{ color: '#fff', fontFamily: F.s }}>
+              {isFirstRun ? 'Save & Open' : 'Unlock'}
+            </T>
+          )}
+        </Pressable>
+
+        {!isFirstRun && hasBiometrics && (
+          <Pressable style={s.fp} onPress={handleBiometricUnlock}>
+            <Ic n="fp" c={theme.blue} s={22} />
+            <T style={{ color: theme.blue, fontSize: 16, fontFamily: F.m }}>Use fingerprint</T>
+          </Pressable>
+        )}
+
+        {!isFirstRun && (
+          <Pressable style={{ marginTop: 20 }} onPress={handleForgotPassword}>
+            <T style={{ color: '#8e8e93', fontSize: 13, textDecorationLine: 'underline' }}>
+              Forgot password?
+            </T>
+          </Pressable>
+        )}
+      </View>
+
+      <T style={s.footer}>Nothing is saved unless you save it.</T>
+
+      <ConfirmDialogModal
+        visible={forgotConfirmVisible}
+        title="Forgot Password"
+        message="For privacy and security, there is no password recovery. Resetting will erase all stored video details, downloads, and preferences."
+        confirmText="Wipe All Data"
+        confirmStyle="destructive"
+        onConfirm={async () => {
+          await LockManager.fullDataWipe();
+          setIsFirstRun(true);
+          setPw('');
+          setConfirmPw('');
+          setErrorMessage('All data wiped. Create a new password.');
+        }}
+        onClose={() => setForgotConfirmVisible(false)}
+      />
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  modalTopBar: {
+    paddingTop: 54,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    zIndex: 10,
+  },
+  center: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 190,
+    alignItems: 'center',
+  },
+  badge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  title: {
+    fontFamily: F.b,
+    fontSize: 24,
+    lineHeight: 31,
+    color: '#fff',
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  prompt: {
+    color: '#a1a1a6',
+    fontSize: 15,
+    marginBottom: 24,
+  },
+  input: {
+    width: 300,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#2c2c2e',
+    paddingHorizontal: 16,
+    color: '#fff',
+    fontSize: 18,
+    fontFamily: F.r,
+  },
+  errorText: {
+    color: C.red,
+    fontSize: 13,
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  unlock: {
+    width: 300,
+    height: 50,
+    marginTop: 16,
+    borderRadius: 12,
+    backgroundColor: C.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fp: {
+    marginTop: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 48,
+    textAlign: 'center',
+    color: '#8e8e93',
+    fontSize: 13,
+  },
+});
