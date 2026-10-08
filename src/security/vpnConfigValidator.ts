@@ -92,3 +92,18 @@ export class VpnConfigValidator {
     let hasPrivateKey = false;
     let hasPeer = false;
     let endpoint = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('#')) continue;
+
+      if (line.toLowerCase() === '[interface]') {
+        hasInterface = true;
+      } else if (line.toLowerCase() === '[peer]') {
+        hasPeer = true;
+      } else if (line.toLowerCase().startsWith('privatekey')) {
+        hasPrivateKey = true;
+      } else if (line.toLowerCase().startsWith('endpoint')) {
+        const parts = line.split('=');
+        if (parts[1]) endpoint = parts[1].trim();
+      }
