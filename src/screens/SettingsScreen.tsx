@@ -81,3 +81,85 @@ export default function SettingsScreen({ onDone, onChangePasswordPrompt }: Setti
         return true;
       }
       if (searchEngineModalVisible) {
+        setSearchEngineModalVisible(false);
+        return true;
+      }
+      if (clearDataConfirmVisible) {
+        setClearDataConfirmVisible(false);
+        return true;
+      }
+      if (sessionClearedNotice) {
+        setSessionClearedNotice(false);
+        return true;
+      }
+      onDone();
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeSubScreen, searchEngineModalVisible, clearDataConfirmVisible, sessionClearedNotice, onDone]);
+
+  function handleThemeCycle() {
+    const modes: ('dark' | 'light' | 'system')[] = ['dark', 'light', 'system'];
+    const idx = modes.indexOf(themeMode);
+    const next = modes[(idx + 1) % modes.length];
+    setThemeMode(next);
+  }
+
+  function handleAutoLockCycle() {
+    const options = ['Immediately', '1 minute', '5 minutes', 'Never'];
+    const timeouts = ['0', '60', '300', '-1'];
+    const idx = options.indexOf(autoLockLabel);
+    const nextIdx = (idx + 1) % options.length;
+    setAutoLockLabel(options[nextIdx]);
+    LockManager.setAutoLockTimeout(timeouts[nextIdx]);
+  }
+
+  function handleSaveDestinationToggle() {
+    const next = saveDestination === 'Downloads' ? 'App Secure Storage' : 'Downloads';
+    setSaveDestination(next);
+    DownloadManager.setSaveDestination(next === 'Downloads' ? 'downloads' : 'app_private');
+  }
+
+  function handleClearAllData() {
+    setClearDataConfirmVisible(true);
+  }
+
+  if (!ok) return null;
+
+  // Sub-screen rendering
+  if (activeSubScreen === 'network') {
+    return <NetworkSettingsScreen onBack={() => setActiveSubScreen('main')} />;
+  }
+  if (activeSubScreen === 'identity') {
+    return <IdentitySettingsScreen onBack={() => setActiveSubScreen('main')} />;
+  }
+  if (activeSubScreen === 'content') {
+    return <ContentSettingsScreen onBack={() => setActiveSubScreen('main')} />;
+  }
+  if (activeSubScreen === 'permissions') {
+    return <PermissionsSettingsScreen onBack={() => setActiveSubScreen('main')} />;
+  }
+  if (activeSubScreen === 'lock') {
+    return (
+      <LockEmergencySettingsScreen
+        onBack={() => setActiveSubScreen('main')}
+        onChangePasswordPrompt={onChangePasswordPrompt}
+      />
+    );
+  }
+  if (activeSubScreen === 'safety') {
+    return <SafetySettingsScreen onBack={() => setActiveSubScreen('main')} />;
+  }
+
+  const rowBorder = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.sep };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.grouped }}>
+      <StatusBar style={theme.statusBar} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <View style={s.topBar}>
+          <View style={{ width: 40 }} />
+          <Pressable onPress={onDone} hitSlop={10}>
+            <T style={{ color: theme.blue, fontFamily: F.s, fontSize: 17 }}>Done</T>
+          </Pressable>
+        </View>
