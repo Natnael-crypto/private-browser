@@ -330,3 +330,86 @@ export default function SettingsScreen({ onDone, onChangePasswordPrompt }: Setti
           </View>
           <View style={[s.row, rowBorder]}>
             <T style={[s.label, { color: theme.text }]}>Remove details after download</T>
+            <Toggle
+              label="Remove details after download"
+              on={removeDetailsAfterDl}
+              onPress={() => {
+                const next = !removeDetailsAfterDl;
+                setRemoveDetailsAfterDl(next);
+                DownloadManager.setAutoRemoveDetails(next);
+              }}
+            />
+          </View>
+          <Pressable style={[s.row, rowBorder]} onPress={handleSaveDestinationToggle}>
+            <T style={[s.label, { color: theme.text }]}>Save to</T>
+            <View style={s.val}>
+              <T style={{ color: theme.sec, fontFamily: F.r }}>{saveDestination}</T>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Clear Data Section */}
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <Pressable
+            style={[s.row, { justifyContent: 'center' }]}
+            onPress={handleClearAllData}
+          >
+            <T style={{ color: theme.red, fontFamily: F.m }}>Clear all data now</T>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      <ConfirmDialogModal
+        visible={clearDataConfirmVisible}
+        title="Clear All Data"
+        message="Are you sure you want to clear all cookies, cache, storage, bookmarks, and open tabs?"
+        confirmText="Clear Everything Now"
+        confirmStyle="destructive"
+        onConfirm={async () => {
+          await clearEverything();
+          setSessionClearedNotice(true);
+        }}
+        onClose={() => setClearDataConfirmVisible(false)}
+      />
+
+      <NoticeDialogModal
+        visible={sessionClearedNotice}
+        title="Session Cleared"
+        message="All browsing data and sessions wiped."
+        onClose={() => setSessionClearedNotice(false)}
+      />
+
+      <ActionSheetModal
+        visible={searchEngineModalVisible}
+        title="Search Engine"
+        message={`Currently searching with ${searchEngine}. Choose your search engine:`}
+        cancelText="Cancel"
+        onClose={() => setSearchEngineModalVisible(false)}
+        options={[
+          {
+            text: searchEngine === 'Google' ? 'Google  ✓' : 'Google',
+            renderIcon: () => <SearchEngineIcon engine="Google" size={24} />,
+            onPress: () => setSearchEngine('Google'),
+          },
+          {
+            text: searchEngine === 'DuckDuckGo' ? 'DuckDuckGo  ✓' : 'DuckDuckGo',
+            renderIcon: () => <SearchEngineIcon engine="DuckDuckGo" size={24} />,
+            onPress: () => setSearchEngine('DuckDuckGo'),
+          },
+          {
+            text: searchEngine === 'Brave' ? 'Brave  ✓' : 'Brave',
+            renderIcon: () => <SearchEngineIcon engine="Brave" size={24} />,
+            onPress: () => setSearchEngine('Brave'),
+          },
+          {
+            text: searchEngine === 'Bing' ? 'Microsoft Bing  ✓' : 'Microsoft Bing',
+            renderIcon: () => <SearchEngineIcon engine="Bing" size={24} />,
+            onPress: () => setSearchEngine('Bing'),
+          },
+          {
+            text: searchEngine === 'Ecosia' ? 'Ecosia  ✓' : 'Ecosia',
+            renderIcon: () => <SearchEngineIcon engine="Ecosia" size={24} />,
+            onPress: () => setSearchEngine('Ecosia'),
+          },
+        ]}
