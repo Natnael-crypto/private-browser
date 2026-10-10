@@ -247,3 +247,86 @@ export default function SettingsScreen({ onDone, onChangePasswordPrompt }: Setti
           <Pressable style={[s.row, rowBorder]} onPress={() => setActiveSubScreen('lock')}>
             <T style={[s.label, { color: theme.text, flex: 1 }]}>Lock & Panic Wipe</T>
             <View style={s.val}>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <Pressable style={[s.row, rowBorder]} onPress={() => setActiveSubScreen('safety')}>
+            <T style={[s.label, { color: theme.text, flex: 1 }]}>Safety & Diagnostics</T>
+            <View style={s.val}>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Search Engine Section */}
+        <T style={[s.hd, { color: theme.sec }]}>Search Engine</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <Pressable style={s.row} onPress={() => setSearchEngineModalVisible(true)}>
+            <T style={[s.label, { color: theme.text }]}>Search Engine</T>
+            <View style={s.val}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <SearchEngineIcon engine={searchEngine} size={20} />
+                <T style={{ color: theme.sec, fontFamily: F.r }}>{searchEngine}</T>
+              </View>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <View style={[s.row, rowBorder]}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <T style={[s.label, { color: theme.text }]}>Search Suggestions</T>
+              <T style={{ color: theme.sec, fontSize: 13, fontFamily: F.r }}>
+                Autocomplete suggestions as you type (off by default)
+              </T>
+            </View>
+            <Toggle
+              label="Search Suggestions"
+              on={searchSuggestions}
+              onPress={() => setSearchSuggestions(!searchSuggestions)}
+            />
+          </View>
+        </View>
+
+        {/* Lock Section */}
+        <T style={[s.hd, { color: theme.sec }]}>Lock</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <Pressable style={s.row} onPress={onChangePasswordPrompt}>
+            <T style={[s.label, { color: theme.text }]}>Password</T>
+            <View style={s.val}>
+              <T style={{ color: theme.sec, fontFamily: F.r }}>Change</T>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <View style={[s.row, rowBorder]}>
+            <T style={[s.label, { color: theme.text }]}>Unlock with fingerprint</T>
+            <Toggle
+              label="Unlock with fingerprint"
+              on={fingerprintEnabled}
+              onPress={async () => {
+                const next = !fingerprintEnabled;
+                setFingerprintEnabled(next);
+                await LockManager.setBiometricEnabled(next);
+              }}
+            />
+          </View>
+          <Pressable style={[s.row, rowBorder]} onPress={handleAutoLockCycle}>
+            <T style={[s.label, { color: theme.text }]}>Auto-lock</T>
+            <View style={s.val}>
+              <T style={{ color: theme.sec, fontFamily: F.r }}>{autoLockLabel}</T>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Downloads Section */}
+        <T style={[s.hd, { color: theme.sec }]}>Downloads</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <View style={s.row}>
+            <T style={[s.label, { color: theme.text }]}>Wi-Fi only</T>
+            <Toggle
+              label="Wi-Fi only"
+              on={wifiOnly}
+              onPress={() => setWifiOnly(!wifiOnly)}
+            />
+          </View>
+          <View style={[s.row, rowBorder]}>
+            <T style={[s.label, { color: theme.text }]}>Remove details after download</T>
