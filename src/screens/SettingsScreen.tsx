@@ -163,3 +163,87 @@ export default function SettingsScreen({ onDone, onChangePasswordPrompt }: Setti
             <T style={{ color: theme.blue, fontFamily: F.s, fontSize: 17 }}>Done</T>
           </Pressable>
         </View>
+
+        <T style={[s.title, { color: theme.text }]}>Settings</T>
+
+        {/* Appearance Section */}
+        <T style={[s.hd, { color: theme.sec }]}>Appearance</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <Pressable style={s.row} onPress={handleThemeCycle}>
+            <T style={[s.label, { color: theme.text }]}>Theme</T>
+            <View style={s.val}>
+              <T style={{ color: theme.sec, fontFamily: F.r }}>
+                {themeMode === 'dark' ? 'Dark (Apple)' : themeMode === 'light' ? 'Light' : 'Automatic (System)'}
+              </T>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Privacy Section */}
+        <T style={[s.hd, { color: theme.sec }]}>Privacy</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <View style={s.row}>
+            <T style={[s.label, { color: theme.text }]}>Block ads and trackers</T>
+            <Toggle
+              label="Block ads and trackers"
+              on={blockAds}
+              onPress={() => setBlockAds(!blockAds)}
+            />
+          </View>
+          <View style={[s.row, rowBorder]}>
+            <T style={[s.label, { color: theme.text }]}>Block third-party cookies</T>
+            <Toggle
+              label="Block third-party cookies"
+              on={blockCookies}
+              onPress={() => setBlockCookies(!blockCookies)}
+            />
+          </View>
+          <View style={[s.row, rowBorder]}>
+            <T style={[s.label, { color: theme.text }]}>HTTPS-only mode</T>
+            <Toggle
+              label="HTTPS-only mode"
+              on={httpsOnly}
+              onPress={() => setHttpsOnly(!httpsOnly)}
+            />
+          </View>
+          <View style={[s.row, rowBorder]}>
+            <T style={[s.label, { color: theme.text }]}>Send Global Privacy Control</T>
+            <Toggle
+              label="Send Global Privacy Control"
+              on={sendGpc}
+              onPress={() => setSendGpc(!sendGpc)}
+            />
+          </View>
+        </View>
+
+        {/* Advanced Security & Privacy (More Settings) Section */}
+        <T style={[s.hd, { color: theme.sec }]}>More Security Settings</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <Pressable style={s.row} onPress={() => setActiveSubScreen('network')}>
+            <T style={[s.label, { color: theme.text, flex: 1 }]}>Network & Proxy</T>
+            <View style={s.val}>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <Pressable style={[s.row, rowBorder]} onPress={() => setActiveSubScreen('identity')}>
+            <T style={[s.label, { color: theme.text, flex: 1 }]}>Identity & Fingerprint</T>
+            <View style={s.val}>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <Pressable style={[s.row, rowBorder]} onPress={() => setActiveSubScreen('content')}>
+            <T style={[s.label, { color: theme.text, flex: 1 }]}>Content & Scripts</T>
+            <View style={s.val}>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <Pressable style={[s.row, rowBorder]} onPress={() => setActiveSubScreen('permissions')}>
+            <T style={[s.label, { color: theme.text, flex: 1 }]}>Permissions & Safe Browsing</T>
+            <View style={s.val}>
+              <Ic n="ch" c={theme.sec} s={16} w={2.4} />
+            </View>
+          </Pressable>
+          <Pressable style={[s.row, rowBorder]} onPress={() => setActiveSubScreen('lock')}>
+            <T style={[s.label, { color: theme.text, flex: 1 }]}>Lock & Panic Wipe</T>
+            <View style={s.val}>
