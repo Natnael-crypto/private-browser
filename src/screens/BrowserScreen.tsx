@@ -443,3 +443,91 @@ export default function BrowserScreen({
                 attempts++;
                 if (triggerSearchEngineVoice() || attempts > 15) {
                   clearInterval(pollInterval);
+                }
+              }, 250);
+            }
+          }
+        } catch(e) {}
+      })();
+    `;
+
+    const resolvedPolicy = {
+      host: hostDisplay,
+      javascriptEnabled: globalJs,
+      blockThirdPartyScripts,
+      blockAutoplay,
+      blockLocalNetwork,
+      imagesEnabled,
+      blockWebFonts,
+      blockServiceWorkers,
+      blockBeacons,
+      blockClipboardRead,
+      detectInsecureForms,
+      fingerprintProtection: reduceFingerprinting,
+      blockerEnabled: blockAds,
+      httpsOnly,
+      sendGpc,
+      userAgent:
+        uaPreset === 'custom' && customUa
+          ? customUa
+          : uaPreset in USER_AGENT_PRESETS
+          ? USER_AGENT_PRESETS[uaPreset as keyof typeof USER_AGENT_PRESETS]
+          : '',
+      language: spoofLanguage === 'system' ? '' : spoofLanguage,
+      timezone: spoofTimezone === 'system' ? '' : spoofTimezone,
+      roundScreen,
+    };
+
+    const securityGuardsScript = PolicyEngine.getInjectedScript(resolvedPolicy);
+
+    const privacyScript = PrivacyManager.getPrivacyInjectedScript({
+      sendGpc,
+      blockWebRtc: true,
+      reduceFingerprinting,
+    });
+    const blockerScript = BlockerEngine.getBlockerInjectedScript(blockAds, false);
+    const desktopViewportScript = activeTab.desktopMode
+      ? `
+      (function() {
+        try {
+          var meta = document.querySelector('meta[name="viewport"]');
+          if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'viewport';
+            document.head.appendChild(meta);
+          }
+          meta.content = 'width=1280, initial-scale=1.0';
+        } catch(e) {}
+      })();
+    `
+      : '';
+    return `
+      if (window.__pb_installed) {
+        true;
+      } else {
+        window.__pb_installed = true;
+        ${desktopViewportScript}
+        ${darkThemeScript}
+        ${privacyScript}
+        ${blockerScript}
+        ${securityGuardsScript}
+        ${mediaAndVoiceScript}
+        ${pagePreviewScript}
+        ${INJECTED_VIDEO_DETECTOR_SCRIPT}
+        true;
+      }
+    `;
+  }, [
+    activeTab.desktopMode,
+    blockAds,
+    sendGpc,
+    theme.isDark,
+    hostDisplay,
+    globalJs,
+    blockThirdPartyScripts,
+    blockAutoplay,
+    blockLocalNetwork,
+    imagesEnabled,
+    blockWebFonts,
+    blockServiceWorkers,
+    blockBeacons,
