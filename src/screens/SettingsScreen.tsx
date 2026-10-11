@@ -413,3 +413,84 @@ export default function SettingsScreen({ onDone, onChangePasswordPrompt }: Setti
             onPress: () => setSearchEngine('Ecosia'),
           },
         ]}
+      />
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  topBar: {
+    paddingTop: 62,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontFamily: F.b,
+    fontSize: 34,
+    lineHeight: 44,
+    letterSpacing: 0.3,
+    marginTop: 6,
+    marginHorizontal: 16,
+    marginBottom: 14,
+  },
+  hd: {
+    marginHorizontal: 32,
+    marginBottom: 6,
+    fontSize: 13,
+    color: C.sec,
+    fontFamily: F.m,
+  },
+  grp: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 46,
+    paddingHorizontal: 16,
+  },
+  rowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.sep,
+  },
+  label: {
+    fontFamily: F.r,
+    fontSize: 17,
+  },
+  val: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sw: {
+    marginLeft: 'auto',
+    width: 51,
+    height: 31,
+    borderRadius: 16,
+  },
+  knob: {
+    position: 'absolute',
+    top: 2,
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: { elevation: 3 },
+    }),
+  },
+});
