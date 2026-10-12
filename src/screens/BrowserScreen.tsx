@@ -620,3 +620,92 @@ export default function BrowserScreen({
     const now = Date.now();
     if (lastPromptUrlRef.current === targetUrl && now - lastPromptTimeRef.current < 2000) {
       return;
+    }
+    lastPromptUrlRef.current = targetUrl;
+    lastPromptTimeRef.current = now;
+
+    let scheme = '';
+    try {
+      scheme = targetUrl.split(':')[0].toLowerCase();
+    } catch {
+      scheme = 'app';
+    }
+
+    let appName = 'External Application';
+    const lower = targetUrl.toLowerCase();
+    if (lower.includes('tiktok') || lower.includes('snssdk') || lower.includes('aweme') || lower.includes('musically')) {
+      appName = 'TikTok';
+    } else if (lower.includes('instagram')) {
+      appName = 'Instagram';
+    } else if (lower.includes('twitter') || lower.includes('x.com')) {
+      appName = 'X (Twitter)';
+    } else if (lower.includes('youtube') || scheme === 'vnd.youtube') {
+      appName = 'YouTube';
+    } else if (lower.includes('reddit')) {
+      appName = 'Reddit';
+    } else if (lower.includes('whatsapp')) {
+      appName = 'WhatsApp';
+    } else if (lower.includes('telegram') || scheme === 'tg') {
+      appName = 'Telegram';
+    } else if (lower.includes('facebook') || lower.includes('fb-messenger') || scheme === 'fb') {
+      appName = 'Facebook';
+    } else if (lower.includes('spotify')) {
+      appName = 'Spotify';
+    } else if (lower.includes('market') || lower.includes('play.google')) {
+      appName = 'App Store';
+    } else {
+      appName = scheme ? `${scheme.toUpperCase()} App` : 'External App';
+    }
+
+    setRedirectModalData({
+      visible: true,
+      appName,
+      targetUrl,
+    });
+  }, []);
+
+  async function handleConfirmRedirect() {
+    if (!redirectModalData) return;
+    const { appName, targetUrl } = redirectModalData;
+    setRedirectModalData(null);
+    try {
+      let openableUrl = targetUrl;
+      if (targetUrl.startsWith('intent://')) {
+        const schemeMatch = targetUrl.match(/scheme=([^;]+)/);
+        if (schemeMatch && schemeMatch[1]) {
+          const innerScheme = schemeMatch[1];
+          const pathPart = targetUrl.slice('intent://'.length).split('#')[0];
+          openableUrl = `${innerScheme}://${pathPart}`;
+        }
+      }
+
+      const canOpen = await Linking.canOpenURL(openableUrl).catch(() => false);
+      if (canOpen) {
+        await Linking.openURL(openableUrl);
+      } else {
+        const canOpenOrig = await Linking.canOpenURL(targetUrl).catch(() => false);
+        if (canOpenOrig) {
+          await Linking.openURL(targetUrl);
+        } else {
+          setBrowserNotice({
+            visible: true,
+            title: 'App Not Installed',
+            message: `The ${appName} application is not installed on your phone.`,
+          });
+        }
+      }
+    } catch {
+      setBrowserNotice({
+        visible: true,
+        title: 'Unable to Open',
+        message: `Could not open ${appName}. The app may not be installed.`,
+      });
+    }
+  }
+
+  function handleShouldStartLoadWithRequest(request: { url: string; isTopFrame?: boolean }): boolean {
+    const url = request.url;
+    if (!url) return false;
+    const isTop = request.isTopFrame !== false;
+
+    DebugLogger.nav('shouldStartLoadWithRequest', { url, isTopFrame: request.isTopFrame });
