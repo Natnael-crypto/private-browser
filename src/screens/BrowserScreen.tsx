@@ -531,3 +531,92 @@ export default function BrowserScreen({
     blockWebFonts,
     blockServiceWorkers,
     blockBeacons,
+    blockClipboardRead,
+    detectInsecureForms,
+    reduceFingerprinting,
+    httpsOnly,
+    uaPreset,
+    customUa,
+    spoofLanguage,
+    spoofTimezone,
+    roundScreen,
+  ]);
+
+  // Dynamically update active webviews when theme changes
+  useEffect(() => {
+    const isDark = Boolean(theme.isDark);
+    const mode = isDark ? 'dark' : 'light';
+    const dynScript = `
+      (function() {
+        try {
+          var meta = document.querySelector('meta[name="color-scheme"]');
+          if (meta) meta.content = '${mode}';
+          if (document.documentElement) {
+            document.documentElement.style.colorScheme = '${mode}';
+            if (${isDark}) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+          }
+        } catch(e) {}
+      })();
+      true;
+    `;
+    Object.values(webViewRefs.current).forEach((ref) => {
+      ref?.injectJavaScript?.(dynScript);
+    });
+  }, [theme.isDark]);
+
+  // Handle messages from WebView (tracker blocked, video detected, drm)
+  function handleWebViewMessage(event: any, tabId?: string) {
+    const targetId = tabId || activeTab.id;
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.type === 'pb_tracker_blocked') {
+        incrementBlockedCount(targetId);
+      } else if (msg.type === 'pb_video_detected') {
+        VideoRegistry.registerDetected({
+          ...msg.data,
+          tabId: targetId,
+        });
+      } else if (msg.type === 'pb_drm_detected') {
+        console.log('DRM detected in page:', msg.keySystem);
+      } else if (msg.type === 'pb_page_metadata') {
+        if (msg.data) {
+          updateTab(targetId, {
+            previewImage: msg.data.previewImage || undefined,
+            description: msg.data.description || undefined,
+          });
+        }
+      } else if (msg.type === 'pb_external_scheme_attempt') {
+        if (msg.url && targetId === activeTabId) {
+          promptExternalAppRedirect(msg.url);
+        }
+      } else if (msg.type === 'pb_insecure_form_detected') {
+        if (detectInsecureForms && targetId === activeTabId) {
+          setBrowserNotice({
+            visible: true,
+            title: 'Insecure Form Alert (HTTP)',
+            message: `Warning: This webpage is submitting form data to an unencrypted destination:\n${msg.action || 'HTTP target'}\n\nYour submitted credentials or personal data could be intercepted on the network.`,
+          });
+        }
+      } else if (msg.type === 'pb_clipboard_read_blocked') {
+        if (targetId === activeTabId) {
+          setBrowserNotice({
+            visible: true,
+            title: 'Clipboard Read Blocked',
+            message: `The website at ${msg.host || 'current page'} attempted to silently read your device clipboard. Access was denied (PRM-3).`,
+          });
+        }
+      }
+    } catch {}
+  }
+
+  const lastPromptUrlRef = useRef<string>('');
+  const lastPromptTimeRef = useRef<number>(0);
+
+  const promptExternalAppRedirect = useCallback((targetUrl: string) => {
+    const now = Date.now();
+    if (lastPromptUrlRef.current === targetUrl && now - lastPromptTimeRef.current < 2000) {
+      return;
