@@ -887,3 +887,91 @@ export default function BrowserScreen({
                   onLoadStart={() => {
                     DebugLogger.load('onLoadStart', { tabId: tab.id, url: tab.loadRequest?.url });
                     updateTab(tab.id, { isLoading: true, progress: 0.15, loadError: null });
+                    if (tab.id === activeTabId) {
+                      VideoRegistry.clearCurrentPage();
+                    }
+                  }}
+                  onLoadProgress={({ nativeEvent }: any) => {
+                    updateTab(tab.id, { progress: nativeEvent.progress });
+                  }}
+                  onLoadEnd={() => {
+                    DebugLogger.load('onLoadEnd', { tabId: tab.id });
+                    updateTab(tab.id, { isLoading: false, progress: 1.0 });
+                    webViewRefs.current[tab.id]?.injectJavaScript(
+                      '(function(){ if (window.__pb_scan) window.__pb_scan(); })(); true;'
+                    );
+                  }}
+                  onNavigationStateChange={(navState: any) => {
+                    if (!navState.url) return;
+                    if (navState.url === 'about:blank') return;
+                    DebugLogger.nav('onNavigationStateChange', {
+                      url: navState.url,
+                      canGoBack: navState.canGoBack,
+                      canGoForward: navState.canGoForward,
+                    });
+
+                    updateTab(tab.id, {
+                      currentUrl: navState.url,
+                      url: navState.url,
+                      title: navState.title || navState.url,
+                      canGoBack: Boolean(navState.canGoBack),
+                      canGoForward: Boolean(navState.canGoForward),
+                    });
+                  }}
+                  onError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    const failingUrl = (nativeEvent as any).failingUrl || (nativeEvent as any).url || tab.currentUrl;
+                    DebugLogger.load('onError', { code: nativeEvent.code, description: nativeEvent.description, failingUrl });
+                    updateTab(tab.id, {
+                      isLoading: false,
+                      loadError: {
+                        code: nativeEvent.code,
+                        description: nativeEvent.description || "Can't open page",
+                        failingUrl,
+                      },
+                    });
+                  }}
+                  onHttpError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    DebugLogger.load('onHttpError', { statusCode: nativeEvent.statusCode, url: nativeEvent.url });
+                    if (nativeEvent.statusCode >= 400) {
+                      updateTab(tab.id, {
+                        isLoading: false,
+                        loadError: {
+                          code: nativeEvent.statusCode,
+                          description: `Server returned HTTP ${nativeEvent.statusCode}`,
+                          failingUrl: nativeEvent.url || tab.currentUrl,
+                        },
+                      });
+                    }
+                  }}
+                  onRenderProcessGone={() => {
+                    DebugLogger.load('onRenderProcessGone', { tabId: tab.id });
+                    updateTab(tab.id, {
+                      isLoading: false,
+                      loadError: {
+                        description: 'The web rendering process crashed unexpectedly.',
+                        failingUrl: tab.currentUrl,
+                      },
+                    });
+                    setWebViewRemountKeys((prev) => ({ ...prev, [tab.id]: (prev[tab.id] || 0) + 1 }));
+                  }}
+                  onContentProcessDidTerminate={() => {
+                    DebugLogger.load('onContentProcessDidTerminate', { tabId: tab.id });
+                    updateTab(tab.id, {
+                      isLoading: false,
+                      loadError: {
+                        description: 'The web content process was terminated by the system.',
+                        failingUrl: tab.currentUrl,
+                      },
+                    });
+                    setWebViewRemountKeys((prev) => ({ ...prev, [tab.id]: (prev[tab.id] || 0) + 1 }));
+                  }}
+                  setSupportMultipleWindows={true}
+                  onOpenWindow={(syntheticEvent) => {
+                    const { targetUrl } = syntheticEvent.nativeEvent;
+                    if (targetUrl) {
+                      createTab(targetUrl);
+                    }
+                  }}
+                  allowsFullscreenVideo
