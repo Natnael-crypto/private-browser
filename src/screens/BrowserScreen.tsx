@@ -709,3 +709,92 @@ export default function BrowserScreen({
     const isTop = request.isTopFrame !== false;
 
     DebugLogger.nav('shouldStartLoadWithRequest', { url, isTopFrame: request.isTopFrame });
+
+    // Block top-level data: and blob: navigations if blockDriveByNav is on (NAV-7)
+    if (isTop && (url.startsWith('data:') || url.startsWith('blob:'))) {
+      if (blockDriveByNav) {
+        DebugLogger.nav('blockDriveByNav', { url });
+        return false;
+      }
+    }
+
+    // javascript: pseudo-protocol: ignore silently without external app prompt
+    if (url.startsWith('javascript:')) {
+      return false;
+    }
+
+    // Standard web protocols allowed inside the browser
+    if (
+      url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('about:') ||
+      url.startsWith('data:') ||
+      url.startsWith('blob:')
+    ) {
+      if (warnRiskyDownloads) {
+        const lower = url.toLowerCase().split('?')[0];
+        const riskyExts = ['.apk', '.exe', '.dmg', '.msi', '.bat', '.sh', '.iso'];
+        if (riskyExts.some((ext) => lower.endsWith(ext))) {
+          setBrowserNotice({
+            visible: true,
+            title: 'Suspicious Download Blocked',
+            message: `This website attempted to download an executable file:\n\n${url}\n\nExecutable downloads may compromise your device. Navigation was blocked for your safety.`,
+          });
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Sub-frames (ad iframes) with custom schemes should never trigger external app prompt
+    if (!isTop) {
+      return false;
+    }
+
+    // If external app redirects confirmation is disabled, block silently
+    if (!confirmAppRedirects) {
+      return false;
+    }
+
+    // Intercept custom external schemes (snssdk1340://, tiktok://, intent://, etc.)
+    promptExternalAppRedirect(url);
+    return false;
+  }
+
+  function handleNavigateSubmit(targetText?: string) {
+    const query = (targetText ?? urlInput).trim();
+    if (!query) {
+      setIsEditingBottomUrl(false);
+      setSuggestions([]);
+      return;
+    }
+    resetBlockedCount(activeTab.id);
+    VideoRegistry.clearCurrentPage();
+    navigateTab(activeTab.id, query);
+    setUrlInput('');
+    setSuggestions([]);
+    setIsEditingBottomUrl(false);
+  }
+
+  function handleShare() {
+    if (activeTab.url && !activeTab.isBlank) {
+      Share.share({
+        url: activeTab.url,
+        message: activeTab.title ? `${activeTab.title}: ${activeTab.url}` : activeTab.url,
+      });
+    }
+  }
+
+  function handleReload() {
+    resetBlockedCount(activeTab.id);
+    VideoRegistry.clearCurrentPage();
+    updateTab(activeTab.id, { loadError: null });
+    reloadTab(activeTab.id);
+    const ref = webViewRefs.current[activeTab.id];
+    if (ref) {
+      ref.reload();
+    }
+  }
+
+  function handleSiteBroken() {
+    setShieldModalVisible(false);
