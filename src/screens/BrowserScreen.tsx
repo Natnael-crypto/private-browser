@@ -798,3 +798,92 @@ export default function BrowserScreen({
 
   function handleSiteBroken() {
     setShieldModalVisible(false);
+    setSiteBrokenConfirmVisible(true);
+  }
+
+  function handleVoiceSearch() {
+    setUrlInput('');
+    setSuggestions([]);
+    if (searchEngine === 'Google') {
+      navigateTab(activeTab.id, 'https://www.google.com/?source=voice&pb_voice=1');
+    } else if (searchEngine === 'Bing') {
+      navigateTab(activeTab.id, 'https://www.bing.com/?pb_voice=1');
+    } else if (searchEngine === 'DuckDuckGo') {
+      navigateTab(activeTab.id, 'https://duckduckgo.com/?q=&pb_voice=1');
+    } else if (searchEngine === 'Brave') {
+      navigateTab(activeTab.id, 'https://search.brave.com/?pb_voice=1');
+    } else {
+      navigateTab(activeTab.id, 'https://www.ecosia.org/?pb_voice=1');
+    }
+  }
+
+  function handleCameraSearch() {
+    setUrlInput('');
+    setSuggestions([]);
+    if (searchEngine === 'Google') {
+      navigateTab(activeTab.id, 'https://lens.google.com/');
+    } else if (searchEngine === 'Bing') {
+      navigateTab(activeTab.id, 'https://www.bing.com/visualsearch');
+    } else if (searchEngine === 'DuckDuckGo') {
+      navigateTab(activeTab.id, 'https://duckduckgo.com/?ia=images&iax=images');
+    } else if (searchEngine === 'Brave') {
+      navigateTab(activeTab.id, 'https://search.brave.com/images');
+    } else {
+      navigateTab(activeTab.id, 'https://www.ecosia.org/images');
+    }
+  }
+
+  if (!ok) return null;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: activeTab.isBlank ? '#090b14' : (theme.isDark ? '#000000' : '#fff') }}>
+      <StatusBar style={activeTab.isBlank ? 'light' : 'dark'} />
+
+      {/* Main WebView or Blank Page */}
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: activeTab.isBlank ? '#090b14' : (theme.isDark ? '#000000' : '#fff'),
+        }}
+      >
+        {/* Loading Progress Bar */}
+        {activeTab.isLoading && (
+          <View style={[s.progressBarTrack, { top: activeTab.isBlank ? 0 : (Platform.OS === 'android' ? 36 : 52), zIndex: 10 }]}>
+            <View style={[s.progressBarFill, { width: `${Math.min(100, Math.max(10, activeTab.progress * 100))}%` }]} />
+          </View>
+        )}
+
+        {/* Tab WebViews Container - Keeps background tabs alive in memory, unmounted on lock (SEC-6) */}
+        {!isLocked && tabs.map((tab) => {
+          if (tab.isBlank && !tab.homeForward) return null;
+          const isActive = tab.id === activeTabId && !tab.isBlank;
+          const remountKey = webViewRemountKeys[tab.id] || 0;
+          return (
+            <View
+              key={`${tab.id}-${remountKey}`}
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  paddingTop: Platform.OS === 'android' ? 36 : 52,
+                  paddingBottom: bottomBarHeight,
+                  display: isActive ? 'flex' : 'none',
+                },
+              ]}
+              pointerEvents={isActive ? 'auto' : 'none'}
+            >
+              {tab.loadRequest && (
+                <WebView
+                  ref={(r) => {
+                    if (r) {
+                      webViewRefs.current[tab.id] = r;
+                    } else {
+                      delete webViewRefs.current[tab.id];
+                    }
+                  }}
+                  source={{ uri: tab.loadRequest.url }}
+                  forceDarkOn={theme.isDark}
+                  injectedJavaScriptBeforeContentLoaded={combinedInjectedJavaScript}
+                  onMessage={(e) => handleWebViewMessage(e, tab.id)}
+                  onLoadStart={() => {
+                    DebugLogger.load('onLoadStart', { tabId: tab.id, url: tab.loadRequest?.url });
+                    updateTab(tab.id, { isLoading: true, progress: 0.15, loadError: null });
