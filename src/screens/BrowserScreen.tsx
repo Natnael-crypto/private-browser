@@ -975,3 +975,92 @@ export default function BrowserScreen({
                     }
                   }}
                   allowsFullscreenVideo
+                  allowsInlineMediaPlayback
+                  mediaPlaybackRequiresUserAction={blockAutoplay}
+                  mediaCapturePermissionGrantType="prompt"
+                  incognito={true}
+                  thirdPartyCookiesEnabled={!blockCookies}
+                  sharedCookiesEnabled={!blockCookies}
+                  javaScriptEnabled={globalJs}
+                  userAgent={
+                    tab.desktopMode
+                      ? USER_AGENT_PRESETS.chrome_win
+                      : uaPreset === 'custom' && customUa
+                      ? customUa
+                      : uaPreset in USER_AGENT_PRESETS && USER_AGENT_PRESETS[uaPreset as keyof typeof USER_AGENT_PRESETS]
+                      ? USER_AGENT_PRESETS[uaPreset as keyof typeof USER_AGENT_PRESETS]
+                      : undefined
+                  }
+                  domStorageEnabled
+                  originWhitelist={['*']}
+                  onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+                  style={{ flex: 1 }}
+                />
+              )}
+
+              {/* In-app error view (NAV-6) */}
+              {tab.loadError && (
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      backgroundColor: theme.isDark ? '#000' : '#fff',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: 24,
+                      zIndex: 20,
+                    },
+                  ]}
+                >
+                  <Svg width={44} height={44} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} style={{ marginBottom: 16 }}>
+                    <Path d="M12 9v4M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </Svg>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: theme.isDark ? '#fff' : '#000', marginBottom: 8, textAlign: 'center' }}>
+                    {"Can't open page"}
+                  </Text>
+                  <Text style={{ fontSize: 14, color: theme.isDark ? '#aaa' : '#666', textAlign: 'center', marginBottom: 12 }}>
+                    {tab.loadError.description}
+                  </Text>
+                  {Boolean(tab.loadError.failingUrl) && (
+                    <Text style={{ fontSize: 12, color: '#888', textAlign: 'center', marginBottom: 20 }} numberOfLines={2}>
+                      {tab.loadError.failingUrl}
+                    </Text>
+                  )}
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <Pressable
+                      style={{ backgroundColor: '#0d74ce', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                      onPress={() => {
+                        updateTab(tab.id, { loadError: null });
+                        reloadTab(tab.id);
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Retry</Text>
+                    </Pressable>
+                    <Pressable
+                      style={{ backgroundColor: theme.isDark ? '#27272a' : '#e4e4e7', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                      onPress={() => updateTab(tab.id, { isBlank: true, loadError: null })}
+                    >
+                      <Text style={{ color: theme.isDark ? '#fff' : '#000', fontWeight: '600', fontSize: 14 }}>Go Home</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        {/* Start / Home Screen when active tab is blank */}
+        {activeTab.isBlank && (
+          <ImageBackground
+            // source={require('../../assets/home-bg.jpg')}
+            source={require('../../assets/home-bg-2.png')}
+            style={s.blankBg}
+            resizeMode="cover"
+          >
+            <View style={s.blankOverlay} />
+            <ScrollView
+              contentContainerStyle={s.blankContainer}
+              showsVerticalScrollIndicator={false}
+            >
+
+              {/* On-Screen Chrome Search Bar (Direct Inline Input) */}
