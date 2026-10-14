@@ -1064,3 +1064,92 @@ export default function BrowserScreen({
             >
 
               {/* On-Screen Chrome Search Bar (Direct Inline Input) */}
+              <View style={[s.chromeSearchBar, { backgroundColor: theme.isDark ? '#202124' : '#ffffff', borderColor: theme.isDark ? '#3c4043' : 'transparent', borderWidth: theme.isDark ? 1 : 0 }]}>
+                <View style={s.chromeSearchLeft}>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => setSearchEngineModalVisible(true)}
+                    accessibilityLabel="Select search engine"
+                    style={{ marginRight: 8, justifyContent: 'center', alignItems: 'center' }}
+                  >
+                    <SearchEngineIcon engine={searchEngine} size={22} />
+                  </Pressable>
+                  <TextInput
+                    value={urlInput}
+                    onChangeText={setUrlInput}
+                    placeholder="Search or type URL"
+                    placeholderTextColor={theme.isDark ? '#9aa0a6' : '#5f6368'}
+                    keyboardType={privateKeyboard ? (Platform.OS === 'android' ? 'visible-password' : 'url') : 'web-search'}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    importantForAutofill="no"
+                    spellCheck={false}
+                    returnKeyType="search"
+                    onSubmitEditing={() => handleNavigateSubmit()}
+                    style={[s.chromeSearchInput, { color: theme.isDark ? '#ffffff' : '#202124' }]}
+                  />
+                </View>
+
+                <View style={s.chromeSearchActions}>
+                  {urlInput.length > 0 ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => {
+                        setUrlInput('');
+                        setSuggestions([]);
+                      }}
+                      style={{ padding: 4 }}
+                    >
+                      <Ic n="x" c={theme.isDark ? '#9aa0a6' : '#5f6368'} s={18} />
+                    </Pressable>
+                  ) : (
+                    <>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={handleVoiceSearch}
+                        accessibilityLabel="Voice search"
+                        style={{ padding: 4 }}
+                      >
+                        <MicIcon size={20} color={theme.isDark ? '#9aa0a6' : '#5f6368'} />
+                      </Pressable>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={handleCameraSearch}
+                        accessibilityLabel="Google Lens camera search"
+                        style={{ padding: 4 }}
+                      >
+                        <LensIcon size={20} color={theme.isDark ? '#9aa0a6' : '#5f6368'} />
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+              </View>
+
+              {/* On-Screen Google Autocomplete Suggestions */}
+              {urlInput.length > 0 && suggestions.length > 0 && (
+                <View style={[s.homeSuggestionsCard, { backgroundColor: theme.isDark ? '#202124' : '#ffffff', borderColor: theme.isDark ? '#3c4043' : 'transparent', borderWidth: theme.isDark ? 1 : 0 }]}>
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    style={{ maxHeight: 220 }}
+                  >
+                    {suggestions.map((item, idx) => (
+                      <View key={`${item}-${idx}`} style={[s.homeSuggestionRow, idx > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.isDark ? '#3c4043' : 'rgba(60,60,67,0.12)' }]}>
+                        <Pressable
+                          style={s.homeSuggestionMain}
+                          onPress={() => handleNavigateSubmit(item)}
+                        >
+                          <Ic n="search" c={theme.isDark ? '#9aa0a6' : '#5f6368'} s={16} />
+                          <T numberOfLines={1} style={[s.homeSuggestionText, { color: theme.isDark ? '#e8eaed' : '#202124' }]}>
+                            {item}
+                          </T>
+                        </Pressable>
+                        <Pressable
+                          style={s.suggestionFillBtn}
+                          hitSlop={8}
+                          onPress={() => setUrlInput(item)}
+                        >
+                          <Ic n="fwd" c={theme.isDark ? '#9aa0a6' : C.gray} s={14} w={2} />
+                        </Pressable>
+                      </View>
