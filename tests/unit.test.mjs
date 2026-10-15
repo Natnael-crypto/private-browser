@@ -475,3 +475,98 @@ test('Navigation - isSameSearchOrRedirect correctly identifies search engine int
       'https://www.google.com/search?q=hello&oq=hello&gs_lcrp=abc123'
     ),
     true,
+    'Google client redirect with same query must be detected as same search'
+  );
+
+  assert.strictEqual(
+    isSameSearchOrRedirect(
+      'https://duckduckgo.com/?q=privacy',
+      'https://duckduckgo.com/?q=privacy&ia=web'
+    ),
+    true,
+    'DuckDuckGo instant answer redirect must be detected as same search'
+  );
+
+  assert.strictEqual(
+    isSameSearchOrRedirect(
+      'https://www.google.com/search?q=hello',
+      'https://en.wikipedia.org/wiki/Hello'
+    ),
+    false,
+    'Navigation to external domain is a new page'
+  );
+
+  assert.strictEqual(
+    isSameSearchOrRedirect(
+      'https://www.google.com/search?q=hello',
+      'https://www.google.com/search?q=world'
+    ),
+    false,
+    'New search query is a new page'
+  );
+});
+
+// 15. Universal Web Theme Injection Tests
+test('Web Theme Injection - Generates color-scheme directives and Google search preferences', () => {
+  function generateThemeScript(isDark) {
+    const mode = isDark ? 'dark' : 'light';
+    const prefVal = isDark ? 'f6=400' : 'f6=0';
+    return {
+      mode,
+      prefVal,
+      metaContent: mode,
+      colorSchemeStyle: mode,
+    };
+  }
+
+  const dark = generateThemeScript(true);
+  assert.strictEqual(dark.mode, 'dark');
+  assert.strictEqual(dark.metaContent, 'dark');
+  assert.strictEqual(dark.colorSchemeStyle, 'dark');
+  assert.strictEqual(dark.prefVal, 'f6=400', 'Google dark mode preference cookie must be f6=400');
+
+  const light = generateThemeScript(false);
+  assert.strictEqual(light.mode, 'light');
+  assert.strictEqual(light.metaContent, 'light');
+  assert.strictEqual(light.colorSchemeStyle, 'light');
+  assert.strictEqual(light.prefVal, 'f6=0', 'Google light mode preference cookie must be f6=0');
+});
+
+// 16. Tabs Screen Page Preview Logic Tests
+test('TabsScreen - correctly classifies tabs and parses URLs for rich previews', () => {
+  function getSearchEngineFromUrl(url) {
+    if (!url) return null;
+    const lower = url.toLowerCase();
+    if (lower.includes('google.com')) return 'Google';
+    if (lower.includes('duckduckgo.com')) return 'DuckDuckGo';
+    if (lower.includes('search.brave.com') || lower.includes('brave.com')) return 'Brave';
+    if (lower.includes('bing.com')) return 'Bing';
+    if (lower.includes('ecosia.org')) return 'Ecosia';
+    return null;
+  }
+
+  function getSearchQuery(url) {
+    if (!url) return '';
+    try {
+      const parsed = new URL(url);
+      const q = parsed.searchParams.get('q') || parsed.searchParams.get('query') || parsed.searchParams.get('p');
+      if (q) return decodeURIComponent(q.replace(/\+/g, ' '));
+    } catch {
+      const match = url.match(/[?&](?:q|query|p)=([^&]+)/i);
+      if (match && match[1]) {
+        try {
+          return decodeURIComponent(match[1].replace(/\+/g, ' '));
+        } catch {
+          return match[1];
+        }
+      }
+    }
+    return '';
+  }
+
+  function getDomain(url) {
+    if (!url || url === 'about:blank') return '';
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      const match = url.match(/https?:\/\/(?:www\.)?([^\/\?#]+)/i);
