@@ -1153,3 +1153,92 @@ export default function BrowserScreen({
                           <Ic n="fwd" c={theme.isDark ? '#9aa0a6' : C.gray} s={14} w={2} />
                         </Pressable>
                       </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </ScrollView>
+          </ImageBackground>
+        )}
+      </View>
+
+
+      {/* Bottom Bar: Address Capsule & Navigation Controls */}
+      <View
+        onLayout={(e) => {
+          const { height } = e.nativeEvent.layout;
+          if (height > 50 && Math.abs(height - bottomBarHeight) > 1) {
+            setBottomBarHeight(height);
+          }
+        }}
+        style={[
+          s.bar,
+          {
+            backgroundColor: theme.isDark ? '#1c1c1e' : 'rgba(247,247,249,0.95)',
+            borderTopColor: theme.isDark ? '#2c2c2e' : 'rgba(60,60,67,0.22)',
+          },
+        ]}
+      >
+        <View style={[s.cap, { backgroundColor: theme.isDark ? '#2c2c2e' : C.fill }]}>
+          {/* Shield & Blocked Count */}
+          <Pressable
+            accessibilityLabel={`Blocker: ${activeTab.blockedCount} blocked`}
+            style={s.capLeft}
+            onPress={() => setShieldModalVisible(true)}
+          >
+            <Ic n="sh" c={theme.sec} s={18} />
+            <T style={{ fontSize: 14, color: theme.sec, fontFamily: F.m }}>{activeTab.blockedCount}</T>
+          </Pressable>
+
+          {/* Center Address Host / Inline Input */}
+          <View style={s.capCenter}>
+            {isEditingBottomUrl ? (
+              <TextInput
+                value={urlInput}
+                onChangeText={setUrlInput}
+                autoFocus
+                placeholder="Search or enter website"
+                placeholderTextColor={theme.sec}
+                keyboardType={privateKeyboard ? (Platform.OS === 'android' ? 'visible-password' : 'url') : 'web-search'}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="off"
+                importantForAutofill="no"
+                spellCheck={false}
+                returnKeyType="search"
+                onSubmitEditing={() => handleNavigateSubmit()}
+                style={[s.capTextInput, { color: theme.text }]}
+              />
+            ) : (
+              <Pressable
+                style={s.capCenterTouchable}
+                onPress={() => {
+                  setUrlInput(activeTab.isBlank ? '' : activeTab.url);
+                  setIsEditingBottomUrl(true);
+                }}
+              >
+                <Ic n="lock" c={theme.isDark ? '#8e8e93' : '#000'} s={13} w={2.2} />
+                <T numberOfLines={1} style={{ fontSize: 16, fontFamily: F.m, color: theme.text }}>
+                  {hostDisplay}
+                </T>
+              </Pressable>
+            )}
+
+            {isEditingBottomUrl && urlInput.length > 0 && (
+              <Pressable
+                onPress={() => {
+                  setUrlInput('');
+                  setSuggestions([]);
+                }}
+                style={{ padding: 4 }}
+              >
+                <Ic n="x" c={theme.sec} s={16} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Reload or Cancel Button */}
+          {isEditingBottomUrl ? (
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
