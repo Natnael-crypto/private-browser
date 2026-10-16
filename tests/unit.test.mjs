@@ -665,3 +665,98 @@ test('Voice & Camera Search - constructs correct URLs for search engines', () =>
 // 18. Download Connection Speed & ETA Calculation Tests
 test('DownloadManager - accurately formats live download speed and ETA', () => {
   function formatSpeed(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec <= 0 || !isFinite(bytesPerSec)) return '0 KB/s';
+    const kbps = bytesPerSec / 1024;
+    const mbps = (bytesPerSec * 8) / (1024 * 1024);
+    if (kbps < 1000) {
+      return `${kbps.toFixed(1)} KB/s (${mbps.toFixed(1)} Mbps)`;
+    }
+    const mb = kbps / 1024;
+    return `${mb.toFixed(2)} MB/s (${mbps.toFixed(1)} Mbps)`;
+  }
+
+  function formatEta(seconds) {
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
+    if (seconds < 5) return '< 5s left';
+    if (seconds < 60) return `${Math.round(seconds)}s left`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    if (mins < 60) {
+      return `${mins}m ${secs}s left`;
+    }
+    const hours = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    return `${hours}h ${remMins}m left`;
+  }
+
+  // Speed formatting
+  assert.strictEqual(formatSpeed(0), '0 KB/s');
+  assert.strictEqual(formatSpeed(-100), '0 KB/s');
+  assert.strictEqual(formatSpeed(512 * 1024), '512.0 KB/s (4.0 Mbps)');
+  assert.strictEqual(formatSpeed(1.5 * 1024 * 1024), '1.50 MB/s (12.0 Mbps)');
+  assert.strictEqual(formatSpeed(12.75 * 1024 * 1024), '12.75 MB/s (102.0 Mbps)');
+
+  // ETA formatting
+  assert.strictEqual(formatEta(0), '');
+  assert.strictEqual(formatEta(3), '< 5s left');
+  assert.strictEqual(formatEta(45), '45s left');
+  assert.strictEqual(formatEta(90), '1m 30s left');
+  assert.strictEqual(formatEta(3720), '1h 2m left');
+});
+
+// 19. VPN Configuration Validator Tests (VPN-7)
+test('VpnConfigValidator - rejects dangerous directives and accepts safe profiles', () => {
+  const FORBIDDEN_DIRECTIVES = ['up', 'down', 'route-up', 'management', 'plugin', 'script-security'];
+
+  function validateOpenVpn(config) {
+    const lines = config.split(/\r?\n/);
+    let hasClient = false;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const directive = trimmed.split(/\s+/)[0].toLowerCase();
+      if (FORBIDDEN_DIRECTIVES.includes(directive)) {
+        return { valid: false, error: `Forbidden directive: ${directive}` };
+      }
+      if (directive === 'client' || directive === 'remote') {
+        hasClient = true;
+      }
+    }
+    return { valid: hasClient };
+  }
+
+  // Safe OpenVPN
+  const safeOvpn = `
+client
+dev tun
+proto udp
+remote 198.51.100.1 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+cipher AES-256-GCM
+  `;
+  assert.strictEqual(validateOpenVpn(safeOvpn).valid, true);
+
+  // Dangerous OpenVPN with script execution
+  const exploitOvpn = `
+client
+remote 198.51.100.1 1194
+script-security 2
+up /bin/sh
+  `;
+  const result = validateOpenVpn(exploitOvpn);
+  assert.strictEqual(result.valid, false);
+  assert.ok(result.error.includes('script-security'));
+
+  // WireGuard validation
+  function validateWireGuard(config) {
+    const lines = config.split(/\r?\n/).map(l => l.trim().toLowerCase());
+    const hasInterface = lines.includes('[interface]');
+    const hasPeer = lines.includes('[peer]');
+    const hasKey = lines.some(l => l.startsWith('privatekey'));
+    return { valid: hasInterface && hasPeer && hasKey };
+  }
+
+  const safeWg = `
