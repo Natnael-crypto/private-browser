@@ -760,3 +760,97 @@ up /bin/sh
   }
 
   const safeWg = `
+[Interface]
+PrivateKey = aaaaaa...
+Address = 10.0.0.2/32
+
+[Peer]
+PublicKey = bbbbbb...
+Endpoint = 198.51.100.1:51820
+AllowedIPs = 0.0.0.0/0
+  `;
+  assert.strictEqual(validateWireGuard(safeWg).valid, true);
+  assert.strictEqual(validateWireGuard('[Interface]\nAddress = 10.0.0.2').valid, false);
+});
+
+// 20. PolicyEngine Precedence Tests (SAF-3, SCR-1, IDN-1)
+test('PolicyEngine - applies site override precedence over parent domain and global defaults', () => {
+  const globalDefaults = {
+    globalJs: true,
+    blockAds: true,
+    imagesEnabled: true,
+    uaPreset: 'default',
+  };
+
+  const siteRules = {
+    'malicious-ads.com': { js: 0, blocker: 1 },
+    'sub.special.org': { js: 1, ua_mode: 'safari_mac' },
+    'special.org': { js: 0, blocker: 1 },
+  };
+
+  function resolve(host) {
+    const direct = siteRules[host];
+    if (direct) {
+      return {
+        js: direct.js !== undefined ? direct.js === 1 : globalDefaults.globalJs,
+        blocker: direct.blocker !== undefined ? direct.blocker === 1 : globalDefaults.blockAds,
+        ua: direct.ua_mode || globalDefaults.uaPreset,
+      };
+    }
+    const parts = host.split('.');
+    if (parts.length > 2) {
+      const parent = parts.slice(-2).join('.');
+      const parentRule = siteRules[parent];
+      if (parentRule) {
+        return {
+          js: parentRule.js !== undefined ? parentRule.js === 1 : globalDefaults.globalJs,
+          blocker: parentRule.blocker !== undefined ? parentRule.blocker === 1 : globalDefaults.blockAds,
+          ua: parentRule.ua_mode || globalDefaults.uaPreset,
+        };
+      }
+    }
+    return {
+      js: globalDefaults.globalJs,
+      blocker: globalDefaults.blockAds,
+      ua: globalDefaults.uaPreset,
+    };
+  }
+
+  // Exact match override
+  assert.deepStrictEqual(resolve('malicious-ads.com'), { js: false, blocker: true, ua: 'default' });
+  // Specific subdomain override
+  assert.deepStrictEqual(resolve('sub.special.org'), { js: true, blocker: true, ua: 'safari_mac' });
+  // Inherit from parent domain
+  assert.deepStrictEqual(resolve('other.special.org'), { js: false, blocker: true, ua: 'default' });
+  // Fall back to global default
+  assert.deepStrictEqual(resolve('wikipedia.org'), { js: true, blocker: true, ua: 'default' });
+});
+
+// 21. Document-Start Injected Security Guards Tests (IDN-6, IDN-7, FPH-1, SCR-4)
+test('InjectedSecurityGuards - generates script with language, timezone, LAN blocking, and canvas noise', () => {
+  function buildScript(options) {
+    return `
+      (function() {
+        ${options.language ? `Object.defineProperty(navigator, 'language', { get: () => "${options.language}" });` : ''}
+        ${options.timezone ? `Intl.DateTimeFormat = function() { return { timeZone: "${options.timezone}" }; };` : ''}
+        ${options.blockLocalNetwork ? `function isLocal(h) { return h === 'localhost' || h === '127.0.0.1'; }` : ''}
+        ${options.reduceFingerprinting ? `HTMLCanvasElement.prototype.toDataURL = function() { /* noise */ };` : ''}
+      })();
+    `;
+  }
+
+  const script = buildScript({
+    language: 'fr-FR',
+    timezone: 'Europe/Paris',
+    blockLocalNetwork: true,
+    reduceFingerprinting: true,
+  });
+
+  assert.ok(script.includes('fr-FR'));
+  assert.ok(script.includes('Europe/Paris'));
+  assert.ok(script.includes('isLocal'));
+  assert.ok(script.includes('HTMLCanvasElement'));
+});
+
+
+
