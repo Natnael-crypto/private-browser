@@ -570,3 +570,98 @@ test('TabsScreen - correctly classifies tabs and parses URLs for rich previews',
       return new URL(url).hostname.replace(/^www\./, '');
     } catch {
       const match = url.match(/https?:\/\/(?:www\.)?([^\/\?#]+)/i);
+      return match ? match[1] : '';
+    }
+  }
+
+  function getPreviewType(tab) {
+    if (tab.isBlank || !tab.url || tab.url === 'about:blank') {
+      return 'blank';
+    }
+    const engine = getSearchEngineFromUrl(tab.url);
+    if (engine) {
+      return 'search';
+    }
+    if (tab.previewImage) {
+      return 'image';
+    }
+    return 'document';
+  }
+
+  // Blank tab
+  assert.strictEqual(getPreviewType({ isBlank: true, url: 'about:blank' }), 'blank');
+
+  // Search Engine URLs
+  const googleTab = { isBlank: false, url: 'https://www.google.com/search?q=expo+react+native' };
+  assert.strictEqual(getPreviewType(googleTab), 'search');
+  assert.strictEqual(getSearchEngineFromUrl(googleTab.url), 'Google');
+  assert.strictEqual(getSearchQuery(googleTab.url), 'expo react native');
+
+  const ddgTab = { isBlank: false, url: 'https://duckduckgo.com/?q=privacy+browser&t=h_' };
+  assert.strictEqual(getPreviewType(ddgTab), 'search');
+  assert.strictEqual(getSearchEngineFromUrl(ddgTab.url), 'DuckDuckGo');
+  assert.strictEqual(getSearchQuery(ddgTab.url), 'privacy browser');
+
+  // Web page with extracted preview image
+  const articleTab = {
+    isBlank: false,
+    url: 'https://www.theverge.com/tech/cool-gadget',
+    previewImage: 'https://cdn.theverge.com/hero.jpg',
+    title: 'The Verge Tech Review'
+  };
+  assert.strictEqual(getPreviewType(articleTab), 'image');
+  assert.strictEqual(getDomain(articleTab.url), 'theverge.com');
+
+  // Web page without preview image
+  const docTab = {
+    isBlank: false,
+    url: 'https://reactnative.dev/docs/getting-started',
+    title: 'Getting Started - React Native'
+  };
+  assert.strictEqual(getPreviewType(docTab), 'document');
+  assert.strictEqual(getDomain(docTab.url), 'reactnative.dev');
+});
+
+// 17. Voice Search and Camera (Google Lens) Search Tests
+test('Voice & Camera Search - constructs correct URLs for search engines', () => {
+  function getVoiceSearchUrl(engine) {
+    if (engine === 'Google') return 'https://www.google.com/?source=voice&pb_voice=1';
+    if (engine === 'Bing') return 'https://www.bing.com/?pb_voice=1';
+    if (engine === 'DuckDuckGo') return 'https://duckduckgo.com/?q=&pb_voice=1';
+    if (engine === 'Brave') return 'https://search.brave.com/?pb_voice=1';
+    return 'https://www.ecosia.org/?pb_voice=1';
+  }
+
+  function getCameraSearchUrl(engine) {
+    if (engine === 'Google') return 'https://lens.google.com/';
+    if (engine === 'Bing') return 'https://www.bing.com/visualsearch';
+    if (engine === 'DuckDuckGo') return 'https://duckduckgo.com/?ia=images&iax=images';
+    if (engine === 'Brave') return 'https://search.brave.com/images';
+    return 'https://www.ecosia.org/images';
+  }
+
+  function isVoiceSearchIntent(url) {
+    return url.includes('source=voice') || url.includes('pb_voice=1');
+  }
+
+  // Google Voice & Lens
+  assert.strictEqual(getVoiceSearchUrl('Google'), 'https://www.google.com/?source=voice&pb_voice=1');
+  assert.ok(isVoiceSearchIntent(getVoiceSearchUrl('Google')));
+  assert.strictEqual(getCameraSearchUrl('Google'), 'https://lens.google.com/');
+
+  // Bing Voice & Visual Search
+  assert.strictEqual(getVoiceSearchUrl('Bing'), 'https://www.bing.com/?pb_voice=1');
+  assert.ok(isVoiceSearchIntent(getVoiceSearchUrl('Bing')));
+  assert.strictEqual(getCameraSearchUrl('Bing'), 'https://www.bing.com/visualsearch');
+
+  // DuckDuckGo
+  assert.strictEqual(getVoiceSearchUrl('DuckDuckGo'), 'https://duckduckgo.com/?q=&pb_voice=1');
+  assert.strictEqual(getCameraSearchUrl('DuckDuckGo'), 'https://duckduckgo.com/?ia=images&iax=images');
+
+  // Non-voice URL check
+  assert.strictEqual(isVoiceSearchIntent('https://www.google.com/search?q=test'), false);
+});
+
+// 18. Download Connection Speed & ETA Calculation Tests
+test('DownloadManager - accurately formats live download speed and ETA', () => {
+  function formatSpeed(bytesPerSec) {
