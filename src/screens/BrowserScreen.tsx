@@ -1242,3 +1242,92 @@ export default function BrowserScreen({
             <Pressable
               hitSlop={8}
               onPress={() => {
+                setIsEditingBottomUrl(false);
+                setSuggestions([]);
+                setUrlInput('');
+              }}
+              style={{ paddingHorizontal: 4 }}
+            >
+              <T style={{ color: theme.blue, fontFamily: F.s, fontSize: 14 }}>Cancel</T>
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityLabel={activeTab.isLoading ? 'Stop' : 'Reload'}
+              onPress={handleReloadOrStop}
+              hitSlop={8}
+            >
+              {activeTab.isLoading ? (
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={theme.isDark ? '#8e8e93' : '#000'} strokeWidth={2.5}>
+                  <Path d="M18 6L6 18M6 6l12 12" />
+                </Svg>
+              ) : (
+                <Ic n="rl" c={theme.isDark ? '#8e8e93' : '#000'} s={18} />
+              )}
+            </Pressable>
+          )}
+        </View>
+
+        {/* Bottom Toolbar: Back, Forward, Share, Downloads, Bookmarks, Tabs, Settings */}
+        <View style={s.tb}>
+          <Pressable
+            accessibilityLabel="Back"
+            disabled={!canGoBack}
+            onPress={handleBack}
+          >
+            <Ic n="back" c={canGoBack ? theme.blue : (theme.isDark ? '#48484a' : C.gray)} s={24} />
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="Forward"
+            disabled={!canGoForward}
+            onPress={handleForward}
+          >
+            <Ic n="fwd" c={canGoForward ? theme.blue : (theme.isDark ? '#48484a' : C.gray)} s={24} />
+          </Pressable>
+
+          <Pressable accessibilityLabel="Share" onPress={handleShare}>
+            <Ic n="share" c={theme.blue} s={22} />
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="Downloads"
+            onPress={onOpenDownloads}
+            style={s.dlBtnWrap}
+          >
+            <Ic n="dl" c={theme.blue} s={22} w={2} />
+            {activeDownloadCount > 0 && (
+              <View style={s.dlBadge}>
+                <T style={s.dlBadgeText}>{activeDownloadCount}</T>
+              </View>
+            )}
+          </Pressable>
+
+          <Pressable accessibilityLabel="Bookmarks" onPress={onOpenBookmarks}>
+            <Ic n="book" c={theme.blue} s={22} />
+          </Pressable>
+
+          <Pressable accessibilityLabel="Tabs" onPress={onOpenTabs}>
+            <Ic n="tabs" c={theme.blue} s={22} />
+          </Pressable>
+
+          <Pressable accessibilityLabel="Settings" onPress={onOpenSettings}>
+            <Ic n="gear" c={theme.blue} s={22} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Floating Active Download Speed Pill (Section 6.2) */}
+      {activeDownloadCount > 0 && !isEditingBottomUrl && (
+        <Pressable
+          style={[
+            s.floatingSpeedPill,
+            {
+              bottom: bottomBarHeight + 12,
+              backgroundColor: theme.isDark ? '#1c1c1e' : '#ffffff',
+              borderColor: theme.blue,
+            },
+          ]}
+          onPress={onOpenDownloads}
+          accessibilityLabel="Active downloads"
+        >
+          <Ic n="speed" s={13} c={theme.blue} />
