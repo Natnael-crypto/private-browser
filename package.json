@@ -28,3 +28,17 @@
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "node --experimental-strip-types --test tests/detection-rules.test.mjs tests/engine-and-extractors.test.mjs tests/unit.test.mjs tests/feature-register.test.mjs && node scripts/audit-dependencies.mjs",
+    "audit": "node scripts/audit-dependencies.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "expo lint"
+  },
+  "private": true
+}
