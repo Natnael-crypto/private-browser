@@ -454,3 +454,67 @@ export const useBrowserStore = create<BrowserState>((set, get) => {
     setRoundScreen: (v) => updateSetting('roundScreen', v),
     setReduceFingerprinting: (v) => updateSetting('reduceFingerprinting', v),
     setGlobalJs: (v) => updateSetting('globalJs', v),
+    setBlockThirdPartyScripts: (v) => updateSetting('blockThirdPartyScripts', v),
+    setBlockAutoplay: (v) => updateSetting('blockAutoplay', v),
+    setBlockLocalNetwork: (v) => updateSetting('blockLocalNetwork', v),
+    setImagesEnabled: (v) => updateSetting('imagesEnabled', v),
+    setBlockWebFonts: (v) => updateSetting('blockWebFonts', v),
+    setBlockServiceWorkers: (v) => updateSetting('blockServiceWorkers', v),
+    setBlockBeacons: (v) => updateSetting('blockBeacons', v),
+    setDefaultDenyPermissions: (v) => updateSetting('defaultDenyPermissions', v),
+    setBlockClipboardRead: (v) => updateSetting('blockClipboardRead', v),
+    setWarnRiskyDownloads: (v) => updateSetting('warnRiskyDownloads', v),
+    setBlockDriveByNav: (v) => updateSetting('blockDriveByNav', v),
+    setConfirmAppRedirects: (v) => updateSetting('confirmAppRedirects', v),
+    setScreenOffLock: (v) => updateSetting('screenOffLock', v),
+    setPrivateKeyboard: (v) => updateSetting('privateKeyboard', v),
+    setDuressCode: (v) => set({ duressCode: v }), // Duress code is in SecureStore only
+    setMaxFailedAttempts: (v) => updateSetting('maxFailedAttempts', v),
+    setDetectInsecureForms: (v) => updateSetting('detectInsecureForms', v),
+
+    loadPersistedSettings: async () => {
+      try {
+        const raw = await db.getSetting('pb_app_settings');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            set((state) => ({ ...state, ...parsed }));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load persisted settings:', e);
+      }
+    },
+
+    resetToInitialState: () => {
+      const newId = Crypto.randomUUID();
+      set({
+        ...DEFAULT_SETTINGS,
+        tabs: [
+          {
+            id: newId,
+            loadRequest: null,
+            currentUrl: DEFAULT_BLANK_URL,
+            url: DEFAULT_BLANK_URL,
+            title: 'New Tab',
+            canGoBack: false,
+            canGoForward: false,
+            homeForward: false,
+            isLoading: false,
+            progress: 0,
+            blockedCount: 0,
+            isBlank: true,
+            desktopMode: false,
+            loadError: null,
+          },
+        ],
+        activeTabId: newId,
+      });
+    },
+
+    clearEverything: async () => {
+      const { WipeService } = await import('../security/wipeService');
+      await WipeService.wipeAll();
+    },
+  };
+});
