@@ -288,3 +288,98 @@ export function buildInjectedSecurityGuards(options: SecurityGuardOptions): stri
         `
             : ''
         }
+
+        // --- SCR-7: Block Service Workers (preserve window.Worker for site functionality) ---
+        ${
+          blockServiceWorkers
+            ? `
+          try {
+            if (navigator.serviceWorker) {
+              navigator.serviceWorker.register = function() {
+                return Promise.reject(new Error('Service workers blocked for privacy (SCR-7)'));
+              };
+            }
+          } catch(e) {}
+        `
+            : ''
+        }
+
+        // --- SCR-9: Block Beacon & Ping API ---
+        ${
+          blockBeacons
+            ? `
+          try {
+            if (navigator.sendBeacon) {
+              navigator.sendBeacon = function() { return false; };
+            }
+            // Strip ping attributes
+            document.addEventListener('click', function(e) {
+              var t = e.target;
+              while (t && t !== document) {
+                if (t.tagName === 'A' && t.hasAttribute('ping')) {
+                  t.removeAttribute('ping');
+                }
+                t = t.parentElement;
+              }
+            }, true);
+          } catch(e) {}
+        `
+            : ''
+        }
+
+        // --- PRM-3: Protect Clipboard Read ---
+        ${
+          blockClipboardRead
+            ? `
+          try {
+            if (navigator.clipboard) {
+              navigator.clipboard.readText = function() {
+                if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'pb_clipboard_read_blocked',
+                    host: window.location.hostname
+                  }));
+                }
+                return Promise.reject(new DOMException('Clipboard read access denied.', 'NotAllowedError'));
+              };
+              navigator.clipboard.read = function() {
+                return Promise.reject(new DOMException('Clipboard read access denied.', 'NotAllowedError'));
+              };
+            }
+          } catch(e) {}
+        `
+            : ''
+        }
+
+        // --- SAF-2: Detect Insecure Form Submissions ---
+        ${
+          detectInsecureForms
+            ? `
+          try {
+            document.addEventListener('submit', function(e) {
+              var form = e.target;
+              if (form && form.tagName === 'FORM') {
+                var action = form.getAttribute('action') || window.location.href;
+                try {
+                  var actUrl = new URL(action, window.location.href);
+                  if (actUrl.protocol === 'http:' || window.location.protocol === 'http:') {
+                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'pb_insecure_form_detected',
+                        host: window.location.hostname,
+                        action: actUrl.toString()
+                      }));
+                    }
+                  }
+                } catch(err) {}
+              }
+            }, true);
+          } catch(e) {}
+        `
+            : ''
+        }
+
+      } catch(outerErr) {}
+    })();
+  `;
+}
