@@ -1420,3 +1420,91 @@ export default function BrowserScreen({
             icon: 'dl',
             onPress: () => {
               setShieldModalVisible(false);
+              onOpenDownloads();
+            },
+          },
+          {
+            text: activeTab.desktopMode ? 'Request Mobile Website' : 'Request Desktop Website',
+            icon: 'gear',
+            onPress: () => {
+              setShieldModalVisible(false);
+              toggleDesktopMode(activeTab.id);
+              reloadTab(activeTab.id);
+            },
+          },
+          {
+            text: 'Blocker & Privacy Settings',
+            icon: 'gear',
+            onPress: () => {
+              setShieldModalVisible(false);
+              onOpenSettings();
+            },
+          },
+        ]}
+      />
+
+      {/* Site Broken Confirmation Dialog Modal */}
+      <ConfirmDialogModal
+        visible={siteBrokenConfirmVisible}
+        title="Site Broken?"
+        message="Would you like to temporarily disable tracker and ad blocking for this page to restore functionality?"
+        confirmText="Reload"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setSiteBrokenConfirmVisible(false);
+          handleReload();
+        }}
+        onCancel={() => setSiteBrokenConfirmVisible(false)}
+      />
+
+      {/* External App Redirect Confirmation Dialog Modal */}
+      <ConfirmDialogModal
+        visible={!!redirectModalData?.visible}
+        title="Open External App?"
+        message={
+          redirectModalData
+            ? `This website is attempting to open the ${redirectModalData.appName} app on your phone.\n\nDo you want to allow this redirect?`
+            : ''
+        }
+        confirmText="Allow & Open"
+        cancelText="Block"
+        onConfirm={handleConfirmRedirect}
+        onCancel={() => setRedirectModalData(null)}
+      />
+
+      {/* Browser Notice Modal */}
+      <NoticeDialogModal
+        visible={!!browserNotice?.visible}
+        title={browserNotice?.title || ''}
+        message={browserNotice?.message || ''}
+        onClose={() => setBrowserNotice(null)}
+      />
+
+      {/* Search Engine Selector Modal */}
+      <ActionSheetModal
+        visible={searchEngineModalVisible}
+        title="Search Engine"
+        message={`Currently searching with ${searchEngine}. Choose your search engine:`}
+        cancelText="Cancel"
+        onClose={() => setSearchEngineModalVisible(false)}
+        options={[
+          {
+            text: searchEngine === 'Google' ? 'Google  ✓' : 'Google',
+            renderIcon: () => <SearchEngineIcon engine="Google" size={24} />,
+            onPress: () => setSearchEngine('Google'),
+          },
+          {
+            text: searchEngine === 'DuckDuckGo' ? 'DuckDuckGo  ✓' : 'DuckDuckGo',
+            renderIcon: () => <SearchEngineIcon engine="DuckDuckGo" size={24} />,
+            onPress: () => setSearchEngine('DuckDuckGo'),
+          },
+          {
+            text: searchEngine === 'Brave' ? 'Brave  ✓' : 'Brave',
+            renderIcon: () => <SearchEngineIcon engine="Brave" size={24} />,
+            onPress: () => setSearchEngine('Brave'),
+          },
+          {
+            text: searchEngine === 'Bing' ? 'Microsoft Bing  ✓' : 'Microsoft Bing',
+            renderIcon: () => <SearchEngineIcon engine="Bing" size={24} />,
+            onPress: () => setSearchEngine('Bing'),
+          },
