@@ -1331,3 +1331,92 @@ export default function BrowserScreen({
           accessibilityLabel="Active downloads"
         >
           <Ic n="speed" s={13} c={theme.blue} />
+          <T style={[s.floatingSpeedText, { color: theme.blue }]}>
+            {activeDownloadSpeed > 0 ? DownloadManager.formatSpeed(activeDownloadSpeed) : 'Downloading...'}
+          </T>
+          <View style={s.floatingSpeedBadge}>
+            <T style={s.floatingSpeedBadgeText}>{activeDownloadCount}</T>
+          </View>
+        </Pressable>
+      )}
+
+      {/* Floating Video Detector Button (Bottom Right) */}
+      {detectedVideos.length > 0 && !isEditingBottomUrl && (
+        <View style={[s.videoFabWrap, { bottom: bottomBarHeight + 12 }]} pointerEvents="box-none">
+          <Pressable
+            style={({ pressed }) => [
+              s.videoFab,
+              { backgroundColor: theme.blue, opacity: pressed ? 0.85 : 1 },
+            ]}
+            onPress={onOpenVideosSheet}
+            hitSlop={8}
+            accessibilityLabel={`${detectedVideos.length} video${detectedVideos.length === 1 ? '' : 's'} detected`}
+          >
+            <Ic n="dl" c="#fff" s={22} w={2.2} />
+            {detectedVideos.length > 0 && (
+              <View style={[s.videoFabBadge, { backgroundColor: theme.red }]}>
+                <T style={s.videoFabBadgeText}>{detectedVideos.length}</T>
+              </View>
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {/* Floating Suggestions Card above Bottom Bar when editing */}
+      {isEditingBottomUrl && suggestions.length > 0 && (
+        <View
+          style={[
+            s.bottomSuggestionsFloat,
+            {
+              bottom: bottomBarHeight + 6,
+              backgroundColor: theme.isDark ? '#202124' : '#ffffff',
+              borderColor: theme.isDark ? '#3c4043' : 'transparent',
+              borderWidth: theme.isDark ? 1 : 0,
+            },
+          ]}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={{ maxHeight: 200 }}
+          >
+            {suggestions.map((item, idx) => (
+              <View key={`${item}-${idx}`} style={[s.homeSuggestionRow, idx > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.isDark ? '#3c4043' : 'rgba(60,60,67,0.12)' }]}>
+                <Pressable
+                  style={s.homeSuggestionMain}
+                  onPress={() => handleNavigateSubmit(item)}
+                >
+                  <Ic n="search" c={theme.isDark ? '#9aa0a6' : '#5f6368'} s={16} />
+                  <T numberOfLines={1} style={[s.homeSuggestionText, { color: theme.isDark ? '#e8eaed' : '#202124' }]}>{item}</T>
+                </Pressable>
+                <Pressable
+                  style={s.suggestionFillBtn}
+                  hitSlop={8}
+                  onPress={() => setUrlInput(item)}
+                >
+                  <Ic n="fwd" c={theme.isDark ? '#9aa0a6' : C.gray} s={14} w={2} />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Shield Info / Allowlist Modal */}
+      <ActionSheetModal
+        visible={shieldModalVisible}
+        title="Protection Shield"
+        message={`${activeTab.blockedCount} trackers and advertisements blocked on this page.`}
+        cancelText="Done"
+        onClose={() => setShieldModalVisible(false)}
+        options={[
+          {
+            text: 'Site broken? Reload without blocking',
+            icon: 'rl',
+            onPress: handleSiteBroken,
+          },
+          {
+            text: 'View Downloads & Saved Videos',
+            icon: 'dl',
+            onPress: () => {
+              setShieldModalVisible(false);
