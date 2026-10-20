@@ -1508,3 +1508,92 @@ export default function BrowserScreen({
             renderIcon: () => <SearchEngineIcon engine="Bing" size={24} />,
             onPress: () => setSearchEngine('Bing'),
           },
+          {
+            text: searchEngine === 'Ecosia' ? 'Ecosia  ✓' : 'Ecosia',
+            renderIcon: () => <SearchEngineIcon engine="Ecosia" size={24} />,
+            onPress: () => setSearchEngine('Ecosia'),
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  progressBarTrack: {
+    height: 3,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    width: '100%',
+  },
+  progressBarFill: {
+    height: 3,
+    backgroundColor: C.blue,
+  },
+  blankBg: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  blankOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(9, 11, 20, 0.3)',
+  },
+  blankContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 68 : 54,
+    paddingBottom: Platform.OS === 'android' ? 180 : 140,
+  },
+  googleLogoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 32,
+  },
+  googleWordmark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  googleChar: {
+    fontSize: 54,
+    fontFamily: F.b,
+    letterSpacing: -1.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 8,
+  },
+  chromeSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    marginBottom: 26,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.28,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  chromeSearchLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  chromeSearchInput: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: F.r,
+    color: '#202124',
+    paddingVertical: 0,
+    height: 48,
