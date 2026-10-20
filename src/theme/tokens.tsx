@@ -182,3 +182,32 @@ export const Ic = ({ n, c, s = 24, w = 1.8 }: IcProps) => {
       width={s}
       height={s}
       viewBox="0 0 24 24"
+      fill="none"
+      stroke={strokeColor}
+      strokeWidth={w}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+    {n === 'lock' && (
+      <>
+        <Rect x="5" y="11" width="14" height="9" rx="2" />
+        <Path d="M8 11V8a4 4 0 018 0v3" />
+      </>
+    )}
+    {n === 'tabs' && (
+      <>
+        <Rect x="4" y="8" width="12" height="12" rx="2" />
+        <Path d="M8 8V6a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2h-2" />
+      </>
+    )}
+    {PATHS[n]?.map((d, index) => (
+      <Path key={`${n}-${index}`} d={d} />
+    ))}
+  </Svg>
+);}
+
+export const Play = ({ s = 16, c = '#ffffff' }: { s?: number; c?: string }) => (
+  <Svg width={s} height={s} viewBox="0 0 24 24" fill={c}>
+    <Path d="M7 4.5v15l13-7.5z" />
+  </Svg>
+);
