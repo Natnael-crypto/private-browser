@@ -131,3 +131,20 @@ export class SpeedMeter {
   }
 
   public static formatSpeed(bytesPerSec: number): string {
+    if (bytesPerSec <= 0) return '0 KB/s';
+    if (bytesPerSec < 1024) return `${bytesPerSec} B/s`;
+    if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`;
+  }
+
+  public static formatEta(seconds: number | null): string {
+    if (seconds === null || seconds < 0) return '--:--';
+    if (seconds < 60) return `0:${seconds.toString().padStart(2, '0')}`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    if (m < 60) return `${m}:${s.toString().padStart(2, '0')}`;
+    const h = Math.floor(m / 60);
+    const remM = m % 60;
+    return `${h}h ${remM}m`;
+  }
+}
