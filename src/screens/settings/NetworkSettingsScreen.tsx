@@ -378,3 +378,193 @@ export default function NetworkSettingsScreen({ onBack }: { onBack: () => void }
                   </Pressable>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <View style={[s.pill, { backgroundColor: theme.sec + '22' }]}>
+                      <T style={{ color: theme.sec, fontSize: 11, fontFamily: F.s }}>In dev</T>
+                    </View>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => setDeleteConfirm({ type: 'vpn', id: v.id, name: v.name })}
+                    >
+                      <Ic n="trash" c={theme.red} s={18} />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })
+          )}
+          <Pressable
+            style={[s.row, vpns.length > 0 && rowBorder, { justifyContent: 'center' }]}
+            onPress={handlePickVpnFile}
+          >
+            <T style={{ color: theme.blue, fontFamily: F.m }}>+ Import VPN Profile (.ovpn / .conf)</T>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+      {/* Add Proxy Modal */}
+      {addProxyVisible && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 }]}>
+          <View style={[s.modalBox, { backgroundColor: theme.cardElevated, borderColor: theme.cardBorder }]}>
+            <T style={[s.modalTitle, { color: theme.text }]}>Add Proxy Profile</T>
+
+            <T style={[s.inputLabel, { color: theme.sec }]}>Profile Name</T>
+            <TextInput
+              style={[s.textInput, { backgroundColor: theme.inputBg, color: theme.text }]}
+              value={proxyName}
+              onChangeText={setProxyName}
+              placeholder="e.g. Frankfurt SOCKS5"
+              placeholderTextColor={theme.sec}
+            />
+
+            <T style={[s.inputLabel, { color: theme.sec }]}>Type</T>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {(['socks5', 'https', 'http'] as const).map((t) => (
+                <Pressable
+                  key={t}
+                  onPress={() => setProxyType(t)}
+                  style={[
+                    s.typeChoice,
+                    {
+                      backgroundColor: proxyType === t ? theme.blue : theme.fill,
+                    },
+                  ]}
+                >
+                  <T style={{ color: proxyType === t ? '#fff' : theme.text, fontSize: 13, fontFamily: F.s }}>
+                    {t.toUpperCase()}
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 3 }}>
+                <T style={[s.inputLabel, { color: theme.sec }]}>Host / IP</T>
+                <TextInput
+                  style={[s.textInput, { backgroundColor: theme.inputBg, color: theme.text }]}
+                  value={proxyHost}
+                  onChangeText={setProxyHost}
+                  placeholder="127.0.0.1"
+                  placeholderTextColor={theme.sec}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={{ flex: 1.5 }}>
+                <T style={[s.inputLabel, { color: theme.sec }]}>Port</T>
+                <TextInput
+                  style={[s.textInput, { backgroundColor: theme.inputBg, color: theme.text }]}
+                  value={proxyPort}
+                  onChangeText={setProxyPort}
+                  keyboardType="numeric"
+                  placeholder="1080"
+                  placeholderTextColor={theme.sec}
+                />
+              </View>
+            </View>
+
+            {/* Test Connection Row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 8 }}>
+              <Pressable
+                onPress={handleTestProxyConnection}
+                disabled={testingProxy}
+                style={[s.testBtn, { backgroundColor: theme.fill }]}
+              >
+                <T style={{ color: theme.blue, fontSize: 13, fontFamily: F.m }}>
+                  {testingProxy ? 'Probing...' : '⚡ Test Connection'}
+                </T>
+              </Pressable>
+              {testLatency !== null && (
+                <View style={[s.pill, { backgroundColor: testLatency > 0 ? theme.green + '22' : theme.red + '22' }]}>
+                  <T style={{ color: testLatency > 0 ? theme.green : theme.red, fontSize: 12, fontFamily: F.s }}>
+                    {testLatency > 0 ? `${testLatency} ms` : 'Failed'}
+                  </T>
+                </View>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 14 }}>
+              <Pressable onPress={() => setAddProxyVisible(false)} style={s.modalBtn}>
+                <T style={{ color: theme.sec, fontFamily: F.m }}>Cancel</T>
+              </Pressable>
+              <Pressable onPress={handleSaveProxy} style={[s.modalBtn, { backgroundColor: theme.blue, borderRadius: 8, paddingHorizontal: 16 }]}>
+                <T style={{ color: '#fff', fontFamily: F.s }}>Save Profile</T>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Add VPN Modal */}
+      {addVpnVisible && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 }]}>
+          <View style={[s.modalBox, { backgroundColor: theme.cardElevated, borderColor: theme.cardBorder, maxHeight: '85%' }]}>
+            <T style={[s.modalTitle, { color: theme.text }]}>Import VPN Profile</T>
+
+            {/* File info card if selected, otherwise file pick button */}
+            {selectedFileName ? (
+              <View style={[s.fileCard, { backgroundColor: theme.inputBg, borderColor: theme.blue + '55' }]}>
+                <View style={{ flex: 1, marginRight: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ic n="dl" c={theme.blue} s={16} />
+                    <T numberOfLines={1} style={{ fontFamily: F.m, fontSize: 14, color: theme.text, flex: 1 }}>
+                      {selectedFileName}
+                    </T>
+                  </View>
+                  <T style={{ color: theme.sec, fontSize: 11, fontFamily: F.r, marginTop: 2 }}>
+                    {vpnKind === 'wireguard' ? 'WireGuard Config' : 'OpenVPN 2.6 Config'}
+                    {selectedFileSize ? ` • ${(selectedFileSize / 1024).toFixed(1)} KB` : ''}
+                  </T>
+                </View>
+                <Pressable
+                  onPress={handlePickVpnFile}
+                  style={[s.pill, { backgroundColor: theme.fill }]}
+                  hitSlop={6}
+                >
+                  <T style={{ color: theme.blue, fontSize: 12, fontFamily: F.m }}>Change</T>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={handlePickVpnFile}
+                style={[s.filePickBtn, { borderColor: theme.blue, backgroundColor: theme.fill }]}
+              >
+                <Ic n="plus" c={theme.blue} s={18} />
+                <T style={{ color: theme.blue, fontFamily: F.m, fontSize: 14 }}>
+                  Select .ovpn or .conf from Device
+                </T>
+              </Pressable>
+            )}
+
+            <T style={[s.inputLabel, { color: theme.sec }]}>Profile Name</T>
+            <TextInput
+              style={[s.textInput, { backgroundColor: theme.inputBg, color: theme.text }]}
+              value={vpnName}
+              onChangeText={setVpnName}
+              placeholder="e.g. ProtonVPN Switzerland"
+              placeholderTextColor={theme.sec}
+            />
+
+            {vpnConfig ? (
+              <>
+                <T style={[s.inputLabel, { color: theme.sec }]}>Config Preview</T>
+                <ScrollView
+                  style={[s.configPreviewBox, { backgroundColor: theme.inputBg, borderColor: theme.cardBorder }]}
+                  nestedScrollEnabled
+                >
+                  <T style={{ fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', color: theme.sec }}>
+                    {vpnConfig}
+                  </T>
+                </ScrollView>
+              </>
+            ) : null}
+
+            <T style={[s.footerNote, { color: theme.sec, marginHorizontal: 0, marginTop: 4 }]}>
+              Config validator strictly screens directives (VPN-7). Executable scripts (up/down/management) are automatically rejected.
+            </T>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 14 }}>
+              <Pressable onPress={() => { setAddVpnVisible(false); resetVpnForm(); }} style={s.modalBtn}>
+                <T style={{ color: theme.sec, fontFamily: F.m }}>Cancel</T>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveVpn}
+                disabled={!vpnConfig}
+                style={[s.modalBtn, { backgroundColor: vpnConfig ? theme.blue : theme.fill, borderRadius: 8, paddingHorizontal: 16 }]}
