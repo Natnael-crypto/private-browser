@@ -188,3 +188,193 @@ export default function NetworkSettingsScreen({ onBack }: { onBack: () => void }
       await db.deleteVpnProfile(deleteConfirm.id);
       if (activeVpnId === deleteConfirm.id) setActiveVpnId(null);
     }
+    setDeleteConfirm(null);
+    loadData();
+  }
+
+  function resetProxyForm() {
+    setProxyName('');
+    setProxyType('socks5');
+    setProxyHost('');
+    setProxyPort('1080');
+    setProxyUser('');
+    setProxyPass('');
+    setTestLatency(null);
+  }
+
+  function resetVpnForm() {
+    setVpnName('');
+    setVpnConfig('');
+    setVpnKind('wireguard');
+    setSelectedFileName(null);
+    setSelectedFileSize(null);
+  }
+
+  async function handlePickVpnFile() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      const content = await FileSystem.readAsStringAsync(asset.uri);
+      if (!content || !content.trim()) {
+        setNotice({ title: 'Empty File', message: 'The selected configuration file is empty.' });
+        return;
+      }
+
+      // Safety validation (VPN-7)
+      const valResult = VpnConfigValidator.validate(content);
+      if (!valResult.valid) {
+        setNotice({
+          title: 'Configuration Rejected',
+          message: valResult.error || 'The selected file is not a valid OpenVPN or WireGuard configuration.',
+        });
+        return;
+      }
+
+      const defaultName = asset.name
+        ? asset.name.replace(/\.(ovpn|conf|txt)$/i, '')
+        : 'VPN Profile';
+
+      setVpnName(defaultName);
+      setVpnConfig(content);
+      setVpnKind(valResult.kind || 'wireguard');
+      setSelectedFileName(asset.name || 'config.ovpn');
+      setSelectedFileSize(asset.size ?? null);
+      setAddVpnVisible(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not read the selected file.';
+      setNotice({
+        title: 'Import Failed',
+        message: msg,
+      });
+    }
+  }
+
+  const rowBorder = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.sep };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.grouped }}>
+      <StatusBar style={theme.statusBar} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Top Header */}
+        <View style={s.topBar}>
+          <Pressable onPress={onBack} hitSlop={10} style={s.backBtn}>
+            <Ic n="back" c={theme.blue} s={22} />
+            <T style={{ color: theme.blue, fontFamily: F.m, fontSize: 17, marginLeft: 4 }}>Settings</T>
+          </Pressable>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <T style={[s.title, { color: theme.text }]}>Network & Proxy</T>
+
+        {/* Proxy Section */}
+        <T style={[s.hd, { color: theme.sec }]}>PROXY SERVERS (NET-1 to NET-6)</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <View style={s.row}>
+            <T style={[s.label, { color: theme.text }]}>Fail-Closed Protection</T>
+            <Toggle
+              label="Fail-closed mode"
+              on={failClosed}
+              onPress={() => setFailClosed(!failClosed)}
+            />
+          </View>
+        </View>
+        <T style={[s.footerNote, { color: theme.sec }]}>
+          If the active proxy is unreachable, block traffic rather than falling back to an unproxied direct connection.
+        </T>
+
+        {/* Proxy Profiles List */}
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          {proxies.length === 0 ? (
+            <View style={[s.row, { justifyContent: 'center' }]}>
+              <T style={{ color: theme.sec, fontFamily: F.r, fontSize: 15 }}>No proxy configured</T>
+            </View>
+          ) : (
+            proxies.map((p, idx) => {
+              const isActive = activeProxyId === p.id;
+              return (
+                <View key={p.id} style={[s.row, idx > 0 && rowBorder]}>
+                  <Pressable
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                    onPress={() => handleToggleProxy(p)}
+                  >
+                    <View style={[s.statusDot, { backgroundColor: isActive ? theme.green : theme.sec }]} />
+                    <View>
+                      <T style={[s.label, { color: theme.text }]}>{p.name}</T>
+                      <T style={{ color: theme.sec, fontSize: 12, fontFamily: F.r }}>
+                        {p.type.toUpperCase()} • {p.host}:{p.port}
+                      </T>
+                    </View>
+                  </Pressable>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {isActive && (
+                      <View style={[s.pill, { backgroundColor: theme.green + '22' }]}>
+                        <T style={{ color: theme.green, fontSize: 12, fontFamily: F.s }}>Active</T>
+                      </View>
+                    )}
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => setDeleteConfirm({ type: 'proxy', id: p.id, name: p.name })}
+                    >
+                      <Ic n="trash" c={theme.red} s={18} />
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })
+          )}
+          <Pressable
+            style={[s.row, proxies.length > 0 && rowBorder, { justifyContent: 'center' }]}
+            onPress={() => {
+              resetProxyForm();
+              setAddProxyVisible(true);
+            }}
+          >
+            <T style={{ color: theme.blue, fontFamily: F.m }}>+ Add Proxy Profile</T>
+          </Pressable>
+        </View>
+
+        {/* VPN Profiles Section */}
+        <T style={[s.hd, { color: theme.sec }]}>VPN & ENCRYPTED TUNNELS (COMING SOON)</T>
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          <View style={s.row}>
+            <T style={[s.label, { color: theme.text }]}>Native VpnService</T>
+            <View style={[s.pill, { backgroundColor: theme.sec + '22' }]}>
+              <T style={{ color: theme.sec, fontSize: 12, fontFamily: F.s }}>Coming Soon</T>
+            </View>
+          </View>
+        </View>
+        <T style={[s.footerNote, { color: theme.sec }]}>
+          WireGuard and OpenVPN tunnels require an Android VpnService native module (currently in development). Profile import and validation is active, but live traffic tunneling is not yet active.
+        </T>
+
+        <View style={[s.grp, { backgroundColor: theme.card }]}>
+          {vpns.length === 0 ? (
+            <View style={[s.row, { justifyContent: 'center' }]}>
+              <T style={{ color: theme.sec, fontFamily: F.r, fontSize: 15 }}>No VPN profiles installed</T>
+            </View>
+          ) : (
+            vpns.map((v, idx) => {
+              return (
+                <View key={v.id} style={[s.row, idx > 0 && rowBorder]}>
+                  <Pressable
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                    onPress={() => setNotice({ title: 'VPN In Development', message: 'WireGuard/OpenVPN tunnel backend is currently being integrated and will be activated in an upcoming update.' })}
+                  >
+                    <View style={[s.statusDot, { backgroundColor: theme.sec }]} />
+                    <View>
+                      <T style={[s.label, { color: theme.text }]}>{v.name}</T>
+                      <T style={{ color: theme.sec, fontSize: 12, fontFamily: F.r }}>
+                        {v.kind === 'wireguard' ? 'WireGuard Config (Saved)' : 'OpenVPN 2.6 (Saved)'}
+                      </T>
+                    </View>
+                  </Pressable>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[s.pill, { backgroundColor: theme.sec + '22' }]}>
