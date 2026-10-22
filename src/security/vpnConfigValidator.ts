@@ -107,3 +107,19 @@ export class VpnConfigValidator {
         const parts = line.split('=');
         if (parts[1]) endpoint = parts[1].trim();
       }
+    }
+
+    if (!hasInterface) {
+      return { valid: false, error: 'Missing [Interface] section in WireGuard configuration.' };
+    }
+    if (!hasPrivateKey) {
+      return { valid: false, error: 'Missing PrivateKey in [Interface] section.' };
+    }
+    if (!hasPeer) {
+      return { valid: false, error: 'Missing [Peer] section in WireGuard configuration.' };
+    }
+
+    return {
+      valid: true,
+      kind: 'wireguard',
+      detectedRemote: endpoint || 'WireGuard Peer',
