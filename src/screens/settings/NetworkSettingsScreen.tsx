@@ -568,3 +568,192 @@ export default function NetworkSettingsScreen({ onBack }: { onBack: () => void }
                 onPress={handleSaveVpn}
                 disabled={!vpnConfig}
                 style={[s.modalBtn, { backgroundColor: vpnConfig ? theme.blue : theme.fill, borderRadius: 8, paddingHorizontal: 16 }]}
+              >
+                <T style={{ color: vpnConfig ? '#fff' : theme.sec, fontFamily: F.s }}>Save Profile</T>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDialogModal
+        visible={!!deleteConfirm}
+        title={`Delete ${deleteConfirm?.type === 'proxy' ? 'Proxy' : 'VPN'} Profile`}
+        message={`Are you sure you want to remove "${deleteConfirm?.name}"?`}
+        confirmText="Delete"
+        confirmStyle="destructive"
+        onConfirm={handleDeleteConfirmed}
+        onClose={() => setDeleteConfirm(null)}
+      />
+
+      {/* Notice Modal */}
+      <NoticeDialogModal
+        visible={!!notice}
+        title={notice?.title || ''}
+        message={notice?.message || ''}
+        onClose={() => setNotice(null)}
+      />
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  topBar: {
+    paddingTop: 62,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  title: {
+    fontFamily: F.b,
+    fontSize: 34,
+    lineHeight: 44,
+    letterSpacing: 0.3,
+    marginTop: 6,
+    marginHorizontal: 16,
+    marginBottom: 14,
+  },
+  hd: {
+    marginHorizontal: 32,
+    marginBottom: 6,
+    fontSize: 12,
+    fontFamily: F.s,
+    letterSpacing: 0.5,
+  },
+  footerNote: {
+    marginHorizontal: 32,
+    marginTop: -14,
+    marginBottom: 20,
+    fontSize: 12,
+    fontFamily: F.r,
+    lineHeight: 16,
+  },
+  grp: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 46,
+    paddingHorizontal: 16,
+  },
+  label: {
+    fontFamily: F.r,
+    fontSize: 17,
+  },
+  sw: {
+    marginLeft: 'auto',
+    width: 51,
+    height: 31,
+    borderRadius: 16,
+  },
+  knob: {
+    position: 'absolute',
+    top: 2,
+    width: 27,
+    height: 27,
+    borderRadius: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  modalBox: {
+    borderRadius: 14,
+    padding: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontFamily: F.b,
+    fontSize: 20,
+    marginBottom: 14,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontFamily: F.m,
+    marginBottom: 4,
+  },
+  textInput: {
+    height: 40,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontFamily: F.r,
+    marginBottom: 10,
+  },
+  configInput: {
+    height: 120,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    textAlignVertical: 'top',
+  },
+  typeChoice: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  testBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  modalBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  fileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  filePickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    marginBottom: 14,
+    gap: 8,
+  },
+  configPreviewBox: {
+    maxHeight: 110,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 10,
+  },
+});
