@@ -123,3 +123,17 @@ export class VpnConfigValidator {
       valid: true,
       kind: 'wireguard',
       detectedRemote: endpoint || 'WireGuard Peer',
+    };
+  }
+
+  /**
+   * Auto-detect format and validate
+   */
+  public static validate(rawConfig: string): ValidationResult {
+    const trimmed = rawConfig.trim();
+    if (trimmed.includes('[Interface]') || trimmed.includes('[Peer]')) {
+      return this.validateWireGuard(trimmed);
+    }
+    return this.validateOpenVpn(trimmed);
+  }
+}
