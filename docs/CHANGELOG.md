@@ -56,3 +56,5 @@
 
 ### Initial Release
 - Multi-tab private browser with ad & tracker blocking, biometric lock, and download management.
+
+<!-- Release v1.1.0 verified -->

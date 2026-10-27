@@ -42,5 +42,3 @@ yarn-error.*
 
 # local archives
 app.zip
-
-scripts/rebuild-clean-history.mjs
